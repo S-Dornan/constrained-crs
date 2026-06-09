@@ -1,0 +1,15 @@
+# Copyright (C) 2026 Sam Dornan
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+
+# docker-compose.yml
+services:
+  uptime-kuma-general:
+    # Point this to your Gitea registry URL
+    image: gitea.samdornan.me/underperforming-software/pi-monitor:online
+    container_name: uptime-kuma-online
+    restart: always
+    devices:
+      - /dev/vchiq:/dev/vchiq
+      - /dev/vcio:/dev/vcio
+    env_file:
+      - .env
