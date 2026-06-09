@@ -1,0 +1,16 @@
+# Git
+.git
+.gitignore
+
+# Docker
+.dockerignore
+Dockerfile
+
+# CI/CD
+.github
+
+# Add any environment files or local build directories below
+.env
+
+# Testing
+.bats
