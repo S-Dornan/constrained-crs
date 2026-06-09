@@ -1,0 +1,128 @@
+#cloud-config
+ssh_pwauth: true
+package_update: true
+package_upgrade: true
+
+packages:
+  - curl
+  - apt-transport-https
+  - ca-certificates
+  - lsb-release
+  - gnupg
+  - socat
+  - nvidia-headless-535-server
+  - nvidia-utils-535
+
+write_files:
+  # 1. Block the host from grabbing the GPU
+  - path: /etc/modprobe.d/blacklist-nouveau.conf
+    content: |
+      blacklist nouveau
+      options nouveau modeset=0
+
+  # 2. Force GRUB to show for 5 seconds
+  - path: /etc/default/grub.d/99-custom-timeout.cfg
+    content: |
+      GRUB_TIMEOUT=5
+      GRUB_TIMEOUT_STYLE=menu
+
+  # 3. The Docker Compose file for the Socat Relay
+  - path: /opt/socat-relay/docker-compose.yml
+    content: |
+      version: "3.8"
+      services:
+        k3s-proxy:
+          image: alpine/socat
+          container_name: k3s-socat-relay
+          restart: unless-stopped
+          network_mode: "host"
+          command: TCP-LISTEN:2375,fork,reuseaddr TCP:127.0.0.1:6443
+          deploy:
+            resources:
+              limits:
+                memory: 256M
+              reservations:
+                memory: 64M
+
+  # 4. The Onboarding Script
+  - path: /usr/local/bin/arc-onboard.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      # Usage: ./arc-onboard.sh <AZURE_SP_APP_ID> <AZURE_SP_SECRET> <AZURE_TENANT_ID> <NETBIRD_SETUP_KEY>
+      
+      APP_ID=$1
+      SECRET=$2
+      TENANT=$3
+      NB_KEY=$4
+      CLUSTER_NAME="proxmox-k3s-arc"
+      RESOURCE_GROUP="arc-k8s-rg"
+      
+      export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+
+      echo "Connecting to NetBird Mesh Network..."
+      netbird up --setup-key "$NB_KEY"
+
+      echo "Logging into Azure..."
+      az login --service-principal -u "$APP_ID" -p "$SECRET" --tenant "$TENANT"
+      
+      echo "Connecting cluster to Azure Arc..."
+      az connectedk8s connect --name "$CLUSTER_NAME" --resource-group "$RESOURCE_GROUP"
+        
+      echo "Starting the K3s Socat Relay..."
+      cd /opt/socat-relay
+      docker compose up -d
+
+      echo "Onboarding complete!"
+
+runcmd:
+  # 1. Install Docker
+  - curl -fsSL https://get.docker.com -o get-docker.sh
+  - sh get-docker.sh
+
+  # 2. Install Nvidia Container Toolkit
+  - curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+  - curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+  - apt-get update
+  - apt-get install -y nvidia-container-toolkit
+  - nvidia-ctk runtime configure --runtime=docker
+  - nvidia-ctk runtime configure --runtime=containerd
+  - systemctl restart docker
+
+  # 3. Install NetBird (Host Binary)
+  - curl -fsSL https://pkgs.netbird.io/install.sh | sh
+
+  # 4. Install K3s
+  - curl -sfL https://get.k3s.io | sh -
+
+  # 5. Install Helm & Azure CLI
+  - curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+  - curl -sL https://aka.ms/InstallAzureCLIDeb | bash
+
+  # 6. Azure Extensions & Provider Registration
+  - az extension add --name connectedk8s
+  - az extension add --name k8s-configuration
+  - az provider register --namespace Microsoft.Kubernetes
+  - az provider register --namespace Microsoft.KubernetesConfiguration
+  - az provider register --namespace Microsoft.ExtendedLocation
+
+  # 7. Prepare Kubeconfig
+  - mkdir -p /root/.kube
+  - cp /etc/rancher/k3s/k3s.yaml /root/.kube/config
+
+  # 8. Configure GPU Power Constraints
+  - nvidia-smi -pm 1
+  - nvidia-smi -pl 75
+
+  # 9. Install and Configure Wazuh Agent
+  - curl -s https://packages.wazuh.com/key/GPG-KEY-WAZUH | gpg --no-default-keyring --keyring gnupg-ring:/usr/share/keyrings/wazuh.gpg --import
+  - chmod 644 /usr/share/keyrings/wazuh.gpg
+  - echo "deb [signed-by=/usr/share/keyrings/wazuh.gpg] https://packages.wazuh.com/4.x/apt/ stable main" | tee /etc/apt/sources.list.d/wazuh.list
+  - apt-get update
+  - WAZUH_MANAGER="192.168.2.135" apt-get install wazuh-agent -y
+  - systemctl daemon-reload
+  - systemctl enable wazuh-agent
+  - systemctl start wazuh-agent
+
+  # 10. Apply GRUB Configuration
+  - update-grub
