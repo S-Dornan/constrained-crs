@@ -1,0 +1,207 @@
+#!/bin/bash
+set -e
+export DEBIAN_FRONTEND=noninteractive
+
+# =====================================================================
+# THE BRIDGE: Terraform Injected Variables to Bash Variables
+# =====================================================================
+export CF_CLIENT_ID="${cf_client_id}"
+export CF_CLIENT_SECRET="${cf_client_secret}"
+export GITEA_PAT="${gitea_pat}"
+# =====================================================================
+
+echo "[*] Bootstrapping OSS-CRS Factory..."
+
+# 1. Install System Dependencies
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl gpg git python3 python3-pip python3-venv apt-transport-https software-properties-common
+
+# 2. Install Docker
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+# 3. Set up loopback mount for persistent storage
+echo "[*] Initializing Persistent Docker Volume..."
+
+DOCKER_IMG="/home/coder/docker_disk.img"
+MOUNT_POINT="/home/coder/docker-data"
+
+if [ ! -f "$DOCKER_IMG" ]; then
+    echo "[!] Creating new 45GB virtual disk image..."
+    sudo truncate -s 45G "$DOCKER_IMG"
+    sudo mkfs.ext4 "$DOCKER_IMG"
+fi
+
+sudo mkdir -p "$MOUNT_POINT"
+if ! mountpoint -q "$MOUNT_POINT"; then
+    sudo mount -o loop "$DOCKER_IMG" "$MOUNT_POINT"
+fi
+
+sudo mkdir -p /etc/docker
+echo "{\"data-root\": \"$MOUNT_POINT\", \"storage-driver\": \"overlay2\", \"mtu\": 1350}" | sudo tee /etc/docker/daemon.json
+
+# 4. Install NVIDIA Container Toolkit for Docker-in-Docker
+echo "[*] Configuring NVIDIA Container Toolkit for Docker-in-Docker..."
+curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
+  sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+  sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+
+sudo apt-get update
+sudo apt-get install -y nvidia-container-toolkit
+
+sudo nvidia-ctk runtime configure --runtime=docker
+
+# 5. Start the Docker Daemon
+sudo service docker restart
+sleep 5
+
+# 6. Deploy Ollama Minions & Pre-fetch Models
+echo "[*] Spinning up Cloudflare Bypass Proxy (Clean Native OCI Pipe)..."
+sudo docker network create crs-net || true
+
+# Generate SSL cert for the REAL domain to satisfy the Realm check
+sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -keyout /home/coder/nginx.key -out /home/coder/nginx.crt \
+  -subj "/CN=gitea.samdornan.me" \
+  -addext "subjectAltName=DNS:gitea.samdornan.me"
+
+# Calculate the Base64 Auth string for Nginx
+AUTH_B64=$(echo -n "S-Dornan:$GITEA_PAT" | base64 -w 0)
+
+# Write the config safely using unquoted EOF so Bash evaluates the mapped variables.
+cat << EOF | sudo tee /home/coder/proxy.conf > /dev/null
+server {
+    listen 443 ssl;
+    server_name gitea.samdornan.me;
+    
+    ssl_certificate /etc/nginx/nginx.crt;
+    ssl_certificate_key /etc/nginx/nginx.key;
+    
+    client_max_body_size 0; 
+    proxy_buffering off;
+    proxy_request_buffering off;
+
+    location / {
+      proxy_pass https://gitea.samdornan.me;
+      proxy_ssl_server_name on;
+      proxy_set_header Host gitea.samdornan.me;
+      
+      # 1. Inject Cloudflare Access Keys via the exported Bash Variables
+      proxy_set_header CF-Access-Client-Id "$CF_CLIENT_ID";
+      proxy_set_header CF-Access-Client-Secret "$CF_CLIENT_SECRET";
+      
+      # 2. THE RETURN OF THE PROXY AUTH: Inject identity into every request
+      proxy_set_header Authorization "Basic $AUTH_B64";
+      
+      # 3. Force HTTP/1.1 just in case, and pass the native 307 Redirects
+      proxy_http_version 1.1;
+      proxy_set_header Connection "";
+      proxy_redirect off;
+      proxy_pass_header Location;
+    }
+}
+EOF
+
+# Boot the Nginx proxy
+sudo docker rm -f cf-proxy || true
+sudo docker run -d --name cf-proxy --network crs-net \
+  -v /home/coder/proxy.conf:/etc/nginx/conf.d/default.conf:ro \
+  -v /home/coder/nginx.crt:/etc/nginx/nginx.crt:ro \
+  -v /home/coder/nginx.key:/etc/nginx/nginx.key:ro \
+  nginx
+
+PROXY_IP=$(sudo docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' cf-proxy)
+
+echo "[*] Spinning up Ollama Container..."
+sudo mkdir -p /home/coder/ollama-data
+sudo docker rm -f ollama-minion || true
+
+echo "[+] Creating fresh container with targeted DNS hijack and Auth config..."
+sudo docker run -d --gpus all --network crs-net \
+  --add-host gitea.samdornan.me:$PROXY_IP \
+  --restart unless-stopped \
+  -v /home/coder/ollama-data:/root/.ollama \
+  -p 11434:11434 \
+  --name ollama-minion ollama/ollama
+
+echo "[*] Waiting for Ollama API to initialize..."
+sleep 5
+
+echo "[*] Forcing container OS to trust our hijacked dummy certificate..."
+sudo docker cp /home/coder/nginx.crt ollama-minion:/usr/local/share/ca-certificates/gitea-dummy.crt
+sudo docker exec ollama-minion update-ca-certificates
+sudo docker restart ollama-minion
+sleep 5
+
+echo "[*] Pulling Custom Air-Gapped Gemma 4 Model natively..."
+sudo docker exec ollama-minion ollama pull gitea.samdornan.me/bug_hunting/gemma-4-text-only:latest
+
+echo "[*] Generating Custom Modelfile for Active Minion..."
+cat << 'MODELFILE' | sudo tee /home/coder/ollama-data/Modelfile > /dev/null
+FROM gitea.samdornan.me/bug_hunting/gemma-4-text-only:latest
+SYSTEM "You are an expert AI vulnerability researcher assisting an MSc Cybersecurity student at UCD. Your goal is to analyze fuzzing crash dumps, identify root causes in memory corruption, and suggest highly targeted structural mutations for further fuzzing."
+MODELFILE
+
+echo "[*] Compiling crs-minion model..."
+sudo docker exec ollama-minion ollama create crs-minion -f /root/.ollama/Modelfile
+
+# 7. Install UV
+curl -LsSf https://astral.sh/uv/install.sh | sudo env UV_INSTALL_DIR="/usr/local/bin" sh
+
+# 8. Provision the Workspace
+cd /home/coder
+
+git config --global --add http."https://gitea.samdornan.me/".extraHeader "CF-Access-Client-Id: $CF_CLIENT_ID"
+git config --global --add http."https://gitea.samdornan.me/".extraHeader "CF-Access-Client-Secret: $CF_CLIENT_SECRET"
+
+if [ ! -d "oss-fuzz-snapshot" ]; then
+  git clone https://$${GITEA_PAT}@gitea.samdornan.me/Bug_Hunting/oss-fuzz-snapshot.git
+fi
+
+if [ ! -d "oss-crs" ]; then
+  git clone https://$${GITEA_PAT}@gitea.samdornan.me/Bug_Hunting/oss-crs.git
+fi
+
+# Clone directly into /tmp to satisfy the CRS orchestrator requirements
+if [ ! -d "/tmp/atlantis-java" ]; then
+  echo "[*] Cloning Atlantis Java Fuzzer Engine to /tmp..."
+  git clone --depth 1 https://$${GITEA_PAT}@gitea.samdornan.me/AI_Cyber_Challenge/atlantis-java.git /tmp/atlantis-java
+fi
+
+if [ ! -d "/tmp/crs-claude-code" ]; then
+  echo "[*] Cloning Claude Code Patcher to /tmp..."
+  git clone --depth 1 https://$${GITEA_PAT}@gitea.samdornan.me/AI_Cyber_Challenge/crs-claude-code.git /tmp/crs-claude-code
+fi
+
+# 9 Configure OSS-CRS Environment Secrets
+echo "[*] Bridging API Keys to OSS-CRS..."
+
+# USING NATIVE CODER ENVIRONMENT VARIABLES (Type A)
+cat << ENVFILE | sudo tee /home/coder/oss-crs/.env > /dev/null
+GEMINI_API_KEY=$GEMINI_API_KEY
+OLLAMA_API_KEY=sk-dummy-key
+ENVFILE
+
+# 10. Install Tmux
+sudo apt-get install -y tmux
+
+# 11. Check if the 'behemoth' session already exists. 
+if ! sudo -u coder tmux has-session -t behemoth 2>/dev/null; then
+  echo "Creating new detached tmux session: behemoth"
+  sudo -u coder tmux new-session -d -s behemoth
+    
+  sudo -u coder tmux send-keys -t behemoth "cd ~/oss-crs" C-m
+fi
+
+echo "[+] Boot sequence complete. CRS is ready."
+echo "Connect to the session using:"
+echo " "
+echo "  tmux attach -t behemoth  "
+echo " "
+echo "Happy hunting!"
