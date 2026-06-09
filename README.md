@@ -1,4 +1,3 @@
-
 # The Constrained Cyber Reasoning System; an implementation of the OSS-CRS from Georgia Tech on constrained hardware
 
 Samuel Dornan - 20385853
@@ -16,12 +15,12 @@ The ultimate objective is to determine if a variant of the OSS-CRS can be succes
 Using a Proxmox Virtual Environment, the resources allocated to the execution environment will be initialized with 8 CPU cores and 32GB of RAM, before being tested against synthetic vulnerabilities to determine the ability of the system to find and fix vulnerabilities. Each run will have its allocated resources progressively scaled down by 2 cores, 8GB of memory, and 5MB/s of bandwidth per run to determine the hardware constraints of the underlying software. Performance will be evaluated based on the success or failure of relevant experimentation runs over a period of no more than 24 hours per run. A successful experimental run is defined as the ability of the system to initialize the environment, to initialize the bug finding CRS, and to initialize the bug fixing CRS, with each individual stage limited to a maximum of 6 hours (21600 seconds), and a 2 hour buffer period for experimental logistics (log capture etc). Failure is defined as any of the inability of the system to start, the inability of the system to initialize the bug finding CRS, and the inability of the system to initialize the bug fixing CRS within the allocated time frame.
 
 ## Milestones and Timeline
-Environment baseline & formalization; Infrastructure as Code scripts to create and reproduce the experimentation environment (Expected completion: 26th June 2026)
-Resource degradation experimentation and data capture; Formal experimentation to determine the ability of the system to operate on progressively constrained hardware. (Expected completion: 24th of July 2026)
-Data analysis; Analysis of experimental performance data and log data (Expected completion: 31st July 2026) 
-First draft review and challenge; First draft of 7,500 word research paper submitted for supervisory review and challenge (Expected completion: 14th of August 2026)
-Second draft review and challenge (optional but recommended); Second draft of 7,500 word research paper with corrections from first review and challenge submitted for supervisory review (Expected completion: 21st August 2026)
-Final submission; Final submission of 7,500 word research paper submitted via Brightspace (Expected completion: 24th August 2026)
+* Environment baseline & formalization; Infrastructure as Code scripts to create and reproduce the experimentation environment (Expected completion: 26th June 2026)
+* Resource degradation experimentation and data capture; Formal experimentation to determine the ability of the system to operate on progressively constrained hardware. (Expected completion: 24th of July 2026)
+* Data analysis; Analysis of experimental performance data and log data (Expected completion: 31st July 2026) 
+* First draft review and challenge; First draft of 7,500 word research paper submitted for supervisory review and challenge (Expected completion: 14th of August 2026)
+* Second draft review and challenge (optional but recommended); Second draft of 7,500 word research paper with corrections from first review and challenge submitted for supervisory review (Expected completion: 21st August 2026)
+* Final submission; Final submission of 7,500 word research paper submitted via Brightspace (Expected completion: 24th August 2026)
 
 ## References
 [1]	Defence Advanced Research and Projects Agency. "AI Cyber Challenge." https://github.com/aixcc-public (accessed 30 April, 2026).
