@@ -8,6 +8,19 @@ SNIPPET_PATH="local:snippets/cloud-init.yaml"
 VM1_ID="301"
 VM2_ID="302"
 
+# ==========================================
+# Clean Slate Safeguard (Idempotency)
+# ==========================================
+echo "[*] Checking for existing cleanroom instances..."
+for TARGET_ID in "$VM1_ID" "$VM2_ID"; do
+  if qm status "$TARGET_ID" >/dev/null 2>&1; then
+    echo "[!] Found existing VM $TARGET_ID. Tearing down for a clean run..."
+    qm stop "$TARGET_ID" >/dev/null 2>&1 || true
+    sleep 2
+    qm destroy "$TARGET_ID"
+  fi
+done
+
 echo "[*] Staging Cloud-Init Snippet..."
 mkdir -p /var/lib/vz/snippets
 cp cloud-init.yaml /var/lib/vz/snippets/cloud-init.yaml
@@ -64,10 +77,16 @@ for VM_DATA in "${VMS[@]}"; do
   qm start $VM_ID
   echo "$VM_NAME is booting!"
 
-  # If we just booted the Vault, pause for 2 seconds to let the socket bind
+  # If we just booted the Vault, wait deterministically for the socket to bind
   if [ "$VM_NAME" == "crs-log-vault" ]; then
-    echo "Waiting for hypervisor socket to bind on port 9001..."
-    sleep 2
+    echo "Waiting for Log Vault hypervisor to bind port 9001..."
+    
+    # Loop continuously until the port shows up as LISTENing
+    while ! ss -lptn | grep -q ":9001 "; do
+      sleep 1
+    done
+    
+    echo "Port 9001 is active. Proceeding with Cleanroom boot."
   fi
 
 done
