@@ -6,6 +6,10 @@ TEMPLATE_ID=9001
 STORAGE="local-lvm"
 SNIPPET_PATH="local:snippets/cloud-init.yaml"
 
+echo "[*] Staging Cloud-Init Snippet..."
+#mkdir -p /var/lib/vz/snippets
+cp cloud-init.yaml /var/lib/vz/snippets/cloud-init.yaml
+
 # Define our VMs: "ID:Name:Backplane_IP"
 VMS=(
   "201:crs-cleanroom:172.16.255.20"
