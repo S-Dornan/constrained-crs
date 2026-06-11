@@ -8,6 +8,12 @@ users:
     shell: /bin/bash
     sudo: ALL=(ALL) NOPASSWD:ALL
 
+# Unlock the console by setting a default password
+chpasswd:
+  list: |
+    ubuntu:changeme
+  expire: false
+
 packages:
   - qemu-guest-agent
   - apt-transport-https
@@ -21,45 +27,40 @@ packages:
   - tmux
 
 write_files:
-  # 1. Force GRUB to show for 5 seconds (Crucial for debugging OOM kernel panics)
   - path: /etc/default/grub.d/99-custom-timeout.cfg
     content: |
       GRUB_TIMEOUT=5
       GRUB_TIMEOUT_STYLE=menu
 
-  # 2. Provide the LLM API Key for the AI Patching Phase
-  - path: /home/ubuntu/CRSBench/.env
-    owner: ubuntu:ubuntu
-    permissions: '0600'
-    defer: true
-    content: |
-      CRSBENCH_LLM_UPSTREAM_BASE_URL=https://api.openai.com/v1
-      CRSBENCH_LLM_UPSTREAM_API_KEY=YOUR_GEMINI_API_KEY_HERE
-
 runcmd:
-  # 1. Enable QEMU Guest Agent for Proxmox Telemetry
   - systemctl enable --now qemu-guest-agent
-
-  # 2. Apply GRUB Configuration
   - update-grub
   
-  # 3. Install Docker Engine Natively
+  # Install Docker
   - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
   - echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
   - apt-get update
   - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
   - systemctl enable --now docker
 
-  # 4. Install UV and Just
+  # Install UV and Just
   - sudo -u ubuntu curl -LsSf https://astral.sh/uv/install.sh | sudo -u ubuntu env UV_INSTALL_DIR="/home/ubuntu/.local/bin" sh
   - curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin
 
-  # 5. Clone the Localized Repositories using embedded PAT
+  # Clone Repositories First
   - sudo -u ubuntu git clone https://github.com/sslab-gatech/CRSBench.git /home/ubuntu/CRSBench
   - sudo -u ubuntu git clone https://github.com/ossf/oss-crs.git /home/ubuntu/oss-crs
   - sudo -u ubuntu git clone --depth 1 https://github.com/Team-Atlanta/atlantis-java.git /tmp/atlantis-java
 
-  # 6. Bootstrap the Orchestrator Environment
+  # Write the API keys AFTER the clone
+  - |
+    sudo -u ubuntu bash -c 'cat <<EOF > /home/ubuntu/CRSBench/.env
+    CRSBENCH_LLM_UPSTREAM_BASE_URL=https://api.openai.com/v1
+    CRSBENCH_LLM_UPSTREAM_API_KEY=YOUR_GEMINI_API_KEY_HERE
+    EOF'
+  - chmod 0600 /home/ubuntu/CRSBench/.env
+
+  # Bootstrap the Environment
   - sudo -u ubuntu /home/ubuntu/.local/bin/uv sync --project /home/ubuntu/CRSBench
 
 final_message: "Cleanroom provisioned successfully after $UPTIME seconds."
