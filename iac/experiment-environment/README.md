@@ -10,14 +10,15 @@ Current template is customized and untested as at the 11th of June 2026
 Run your `setup-template.sh` script on the Proxmox host. This will download the Noble Numbat image and bind it to VM 9001.
 
 ```bash
+chmod +x setup-template.sh
 ./setup-template.sh
-
 ```
 
 **2. Compile and Provision**
 Ensure your `.env` file (with your API key) and your `cloud-init.yaml` are sitting in the same directory as your `vm-config.sh` script. Run the compiler and watch Proxmox spin up the Cleanroom and the Log Vault.
 
 ```bash
+chmod +x vm-config.sh
 ./vm-config.sh
 
 ```
