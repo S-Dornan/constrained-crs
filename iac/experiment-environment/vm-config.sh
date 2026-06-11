@@ -58,7 +58,7 @@ for VM_DATA in "${VMS[@]}"; do
     echo "Configuring Cleanroom as Serial Sender..."
     # Instructs QEMU to create a virtual serial port and connect to host loopback port 9001
     # reconnect=5 ensures it retries if the Vault isn't fully listening yet
-    qm set $VM_ID --args "-chardev socket,id=serial_log,host=127.0.0.1,port=9001,reconnect=5 -device isa-serial,chardev=serial_log"
+    qm set $VM_ID --args "-chardev socket,id=serial_log,host=127.0.0.1,port=9001 -device isa-serial,chardev=serial_log"
   fi
 
   # Start the VM
