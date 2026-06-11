@@ -41,12 +41,20 @@ for VM_DATA in "${VMS[@]}"; do
   qm resize $VM_ID scsi0 32G
   
   # ==========================================
-  # Cleanroom-Specific Hardware Configurations
+  # Native QEMU Serial Port Bridging
   # ==========================================
+  
+  if [ "$VM_NAME" == "crs-log-vault" ]; then
+    echo "Configuring Log Vault as Serial Receiver..."
+    # Instructs QEMU to create a virtual serial port and listen on host loopback port 9001
+    qm set $VM_ID --args "-chardev socket,id=serial_log,host=127.0.0.1,port=9001,server=on,wait=off -device isa-serial,chardev=serial_log"
+  fi
+
   if [ "$VM_NAME" == "crs-cleanroom" ]; then
-    echo "Attaching Virtual Serial Port to Cleanroom..."
-    # Exposes /dev/ttyS0 inside the VM to a UNIX socket on the Proxmox host
-    qm set $VM_ID --serial0 socket
+    echo "Configuring Cleanroom as Serial Sender..."
+    # Instructs QEMU to create a virtual serial port and connect to host loopback port 9001
+    # reconnect=5 ensures it retries if the Vault isn't fully listening yet
+    qm set $VM_ID --args "-chardev socket,id=serial_log,host=127.0.0.1,port=9001,reconnect=5 -device isa-serial,chardev=serial_log"
   fi
 
   # Start the VM
