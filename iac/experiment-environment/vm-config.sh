@@ -12,8 +12,8 @@ cp cloud-init.yaml /var/lib/vz/snippets/cloud-init.yaml
 
 # Define our VMs: "ID:Name:Backplane_IP"
 VMS=(
-  "201:crs-cleanroom:172.16.255.20"
-  "202:crs-log-vault:172.16.255.21"
+  "301:crs-cleanroom:172.16.255.20"
+  "302:crs-log-vault:172.16.255.21"
 )
 
 echo "[*] Initializing CRS Cleanroom Architecture..."
