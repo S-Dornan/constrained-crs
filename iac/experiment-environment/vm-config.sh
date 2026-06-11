@@ -2,7 +2,7 @@
 # Run on Proxmox Host
 # Provisions the OSS-CRS Cleanroom and the Log Vault
 
-TEMPLATE_ID=9000
+TEMPLATE_ID=9001
 STORAGE="local-lvm"
 SNIPPET_PATH="local:snippets/cloud-init.yaml"
 
