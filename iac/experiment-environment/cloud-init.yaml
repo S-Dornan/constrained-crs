@@ -55,9 +55,9 @@ runcmd:
   - curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin
 
   # 5. Clone the Localized Repositories using embedded PAT
-  - sudo -u ubuntu git clone https://YOUR_GITHUB_PAT_HERE@github.com/MSc-Cybersecurity/CRSBench.git /home/ubuntu/CRSBench
-  - sudo -u ubuntu git clone https://YOUR_GITHUB_PAT_HERE@github.com/MSc-Cybersecurity/oss-crs.git /home/ubuntu/oss-crs
-  - sudo -u ubuntu git clone --depth 1 https://YOUR_GITHUB_PAT_HERE@github.com/MSc-Cybersecurity/atlantis-java.git /tmp/atlantis-java
+  - sudo -u ubuntu git clone https://github.com/sslab-gatech/CRSBench.git /home/ubuntu/CRSBench
+  - sudo -u ubuntu git clone https://github.com/ossf/oss-crs.git /home/ubuntu/oss-crs
+  - sudo -u ubuntu git clone --depth 1 https://github.com/Team-Atlanta/atlantis-java.git /tmp/atlantis-java
 
   # 6. Bootstrap the Orchestrator Environment
   - sudo -u ubuntu /home/ubuntu/.local/bin/uv sync --project /home/ubuntu/CRSBench
