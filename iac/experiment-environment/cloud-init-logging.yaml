@@ -21,9 +21,10 @@ packages:
   - gnupg
   - lsb-release
   - htop
+  - squid
 
 write_files:
-  # Configure a background service to listen to the serial bridge
+  # 1. Configure the telemetry logging service
   - path: /etc/systemd/system/serial-logger.service
     content: |
       [Unit]
@@ -31,13 +32,34 @@ write_files:
       After=multi-user.target
 
       [Service]
-      # Set baud rate to 115200, disable echo, and pipe raw text to the log file
       ExecStart=/bin/sh -c 'stty -F /dev/ttyS1 115200 raw -echo && cat /dev/ttyS1 >> /home/ubuntu/experiment-telemetry.log'
       Restart=always
       User=ubuntu
 
       [Install]
       WantedBy=multi-user.target
+
+  # 2. Configure Squid to cache heavy assets locally over the backplane
+  - path: /etc/squid/squid.conf
+    content: |
+      # Listen strictly on the internal backplane interface
+      http_port 172.16.255.20:3128
+
+      # Define the Cleanroom subnet and allow access
+      acl backplane src 172.16.255.0/24
+      http_access allow backplane
+      http_access deny all
+
+      # Fatten the cache: 80GB storage, max object size 5GB (for Docker layers)
+      cache_dir ufs /var/spool/squid 80000 16 256
+      maximum_object_size 5000 MB
+      cache_mem 1024 MB
+
+      # Standard refresh patterns to maximize cache hits
+      refresh_pattern ^ftp:           1440    20%     10080
+      refresh_pattern ^gopher:        1440    0%      1440
+      refresh_pattern -i (/cgi-bin/|\?) 0     0%      0
+      refresh_pattern .               0       20%     4320
 
 runcmd:
   - systemctl enable --now qemu-guest-agent
@@ -49,7 +71,8 @@ runcmd:
   - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
   - systemctl enable --now docker
 
-  # Enable the custom serial logging service
+  # Enable and restart services to apply configurations
   - systemctl enable --now serial-logger
+  - systemctl restart squid
 
-final_message: "Log Vault provisioned securely with Docker after $UPTIME seconds."
+final_message: "Log Vault provisioned securely with Docker and Squid after $UPTIME seconds."
