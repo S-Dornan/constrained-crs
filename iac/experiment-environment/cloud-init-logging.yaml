@@ -1,0 +1,55 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+
+users:
+  - name: ubuntu
+    groups: sudo, docker
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+
+chpasswd:
+  list: |
+    ubuntu:changeme
+  expire: false
+
+packages:
+  - qemu-guest-agent
+  - apt-transport-https
+  - ca-certificates
+  - curl
+  - gnupg
+  - lsb-release
+  - htop
+
+write_files:
+  # Configure a background service to listen to the serial bridge
+  - path: /etc/systemd/system/serial-logger.service
+    content: |
+      [Unit]
+      Description=Record telemetry from Cleanroom via ttyS1
+      After=multi-user.target
+
+      [Service]
+      # Set baud rate to 115200, disable echo, and pipe raw text to the log file
+      ExecStart=/bin/sh -c 'stty -F /dev/ttyS1 115200 raw -echo && cat /dev/ttyS1 >> /home/ubuntu/experiment-telemetry.log'
+      Restart=always
+      User=ubuntu
+
+      [Install]
+      WantedBy=multi-user.target
+
+runcmd:
+  - systemctl enable --now qemu-guest-agent
+  
+  # Install Docker Native
+  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+  - echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+  - apt-get update
+  - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  - systemctl enable --now docker
+
+  # Enable the custom serial logging service
+  - systemctl enable --now serial-logger
+
+final_message: "Log Vault provisioned securely with Docker after $UPTIME seconds."
