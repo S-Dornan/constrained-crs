@@ -28,8 +28,11 @@ for EXP in "${EXPERIMENTS[@]}"; do
   ./vm-config.sh "$CORES" "$RAM" "$RATE"
 
   # 2. Wait for Cloud-Init to finish
-  echo "Waiting for Cloud-Init to provision the Cleanroom..."
-  while ! qm guest exec 302 -- bash -c "cloud-init status" | grep -q "done"; do
+  echo "Waiting for OS and QEMU Guest Agent to boot..."
+  sleep 45
+  
+  echo "Polling Cloud-Init status..."
+  while ! qm guest exec 302 -- bash -c "cloud-init status" 2>/dev/null | grep -q "done"; do
     sleep 30
   done
   echo "Cloud-Init complete."
@@ -49,8 +52,8 @@ for EXP in "${EXPERIMENTS[@]}"; do
   echo "Experiments running. Vault is logging. Entering deterministic monitor loop..."
 
   while [ $ELAPSED -lt $MAX_RUNTIME ]; do
-    # Check if the 'runner' tmux session is still alive
-    if ! qm guest exec 302 -- sudo -u ubuntu tmux has-session -t runner >/dev/null 2>&1; then
+    # Check if 'runner' is still in the active tmux session list
+    if ! qm guest exec 302 -- sudo -u ubuntu tmux ls 2>/dev/null | grep -q "runner"; then
       echo "Runner session terminated (completed or crashed) at $ELAPSED seconds."
       break
     fi
