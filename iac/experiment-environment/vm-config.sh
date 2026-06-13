@@ -8,6 +8,7 @@ VM1_SNIPPET_PATH="local:snippets/cloud-init-logging.yaml"
 VM2_SNIPPET_PATH="local:snippets/cloud-init-cleanroom.yaml"
 VM1_ID="301"
 VM2_ID="302"
+
 # Accept CLI arguments for resource starvation, with fallback defaults
 TARGET_CORES=${1:-8}
 TARGET_RAM=${2:-32768}
@@ -47,13 +48,26 @@ for VM_DATA in "${VMS[@]}"; do
   # Clone the base template
   qm clone $TEMPLATE_ID $VM_ID --name $VM_NAME --full true --storage $STORAGE
   
-  # Configure Hardware, Dual-NICs, and QEMU Guest Agent
-  qm set $VM_ID \
-    --memory 4096 \
-    --cores 2 \
-    --agent 1 \
-    --net0 virtio,bridge=vmbr0 \
-    --net1 virtio,bridge=vmbr1
+  # ==========================================
+  # Role-Based Hardware Allocation
+  # ==========================================
+  if [ "$VM_NAME" == "crs-log-vault" ]; then
+    echo "Applying static, lightweight footprint to Log Vault..."
+    qm set $VM_ID \
+      --memory 2048 \
+      --cores 1 \
+      --agent 1 \
+      --net0 virtio,bridge=vmbr0 \
+      --net1 virtio,bridge=vmbr1
+  else
+    echo "Applying experimental starvation profile to Cleanroom..."
+    qm set $VM_ID \
+      --memory $TARGET_RAM \
+      --cores $TARGET_CORES \
+      --agent 1 \
+      --net0 virtio,bridge=vmbr0,rate=$TARGET_RATE \
+      --net1 virtio,bridge=vmbr1
+  fi
 
   # ==========================================
   # Route the Correct Cloud-Init File
