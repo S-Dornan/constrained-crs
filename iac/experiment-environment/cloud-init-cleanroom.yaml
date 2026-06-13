@@ -83,4 +83,12 @@ runcmd:
   # Write the API keys AFTER the clone
   - |
     sudo -u ubuntu bash -c 'cat <<EOF > /home/ubuntu/CRSBench/.env
-    CRSBENCH_LLM_
+    CRSBENCH_LLM_UPSTREAM_BASE_URL=https://api.openai.com/v1
+    CRSBENCH_LLM_UPSTREAM_API_KEY=YOUR_GEMINI_API_KEY_HERE
+    EOF'
+  - chmod 0600 /home/ubuntu/CRSBench/.env
+
+  # Bootstrap the Environment
+  - sudo -u ubuntu bash -c 'export http_proxy="http://172.16.255.20:3128" https_proxy="http://172.16.255.20:3128"; /home/ubuntu/.local/bin/uv sync --project /home/ubuntu/CRSBench'
+
+final_message: "Cleanroom provisioned securely via Log Vault proxy after $UPTIME seconds."
