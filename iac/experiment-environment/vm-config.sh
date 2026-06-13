@@ -4,7 +4,8 @@
 
 TEMPLATE_ID=9001
 STORAGE="local-lvm"
-SNIPPET_PATH="local:snippets/cloud-init.yaml"
+VM1_SNIPPET_PATH="local:snippets/cloud-init-logging.yaml"
+VM2_SNIPPET_PATH="local:snippets/cloud-init-cleanroom.yaml"
 VM1_ID="301"
 VM2_ID="302"
 
@@ -23,7 +24,8 @@ done
 
 echo "[*] Staging Cloud-Init Snippet..."
 mkdir -p /var/lib/vz/snippets
-cp cloud-init.yaml /var/lib/vz/snippets/cloud-init.yaml
+cp cloud-init-logging.yaml /var/lib/vz/snippets/cloud-init-logging.yaml
+cp cloud-init-cleanroom.yaml /var/lib/vz/snippets/cloud-init-cleanroom.yaml
 
 # Define our VMs in strict boot order: "ID:Name:Backplane_IP"
 VMS=(
