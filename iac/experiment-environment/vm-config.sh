@@ -50,12 +50,21 @@ for VM_DATA in "${VMS[@]}"; do
     --agent 1 \
     --net0 virtio,bridge=vmbr0 \
     --net1 virtio,bridge=vmbr1
+
+  # ==========================================
+  # Route the Correct Cloud-Init File
+  # ==========================================
+  if [ "$VM_NAME" == "crs-log-vault" ]; then
+    ACTIVE_SNIPPET=$VM1_SNIPPET_PATH
+  else
+    ACTIVE_SNIPPET=$VM2_SNIPPET_PATH
+  fi
     
   # Inject Cloud-Init Networking
   qm set $VM_ID \
     --ipconfig0 ip=dhcp \
     --ipconfig1 ip=$BACKPLANE_IP/24 \
-    --cicustom "user=$SNIPPET_PATH" \
+    --cicustom "user=$ACTIVE_SNIPPET" \
     --tags "crs,experiment"
     
   # Resize the boot disk
