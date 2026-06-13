@@ -32,6 +32,30 @@ write_files:
       GRUB_TIMEOUT=5
       GRUB_TIMEOUT_STYLE=menu
 
+  # 1. System-wide Proxy Environment Variables
+  - path: /etc/environment
+    append: true
+    content: |
+      http_proxy="http://172.16.255.20:3128"
+      https_proxy="http://172.16.255.20:3128"
+      HTTP_PROXY="http://172.16.255.20:3128"
+      HTTPS_PROXY="http://172.16.255.20:3128"
+      no_proxy="localhost,127.0.0.1,172.16.255.21,172.16.255.20"
+
+  # 2. Apt-Specific Proxy Settings
+  - path: /etc/apt/apt.conf.d/01proxy
+    content: |
+      Acquire::http::Proxy "http://172.16.255.20:3128";
+      Acquire::https::Proxy "http://172.16.255.20:3128";
+
+  # 3. Docker Daemon Proxy Settings
+  - path: /etc/systemd/system/docker.service.d/http-proxy.conf
+    content: |
+      [Service]
+      Environment="HTTP_PROXY=http://172.16.255.20:3128"
+      Environment="HTTPS_PROXY=http://172.16.255.20:3128"
+      Environment="NO_PROXY=localhost,127.0.0.1,172.16.255.21,172.16.255.20"
+
 runcmd:
   - systemctl enable --now qemu-guest-agent
   - update-grub
@@ -41,26 +65,22 @@ runcmd:
   - echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
   - apt-get update
   - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  
+  # Reload systemd to catch the Docker proxy drop-in, then enable Docker
+  - systemctl daemon-reload
   - systemctl enable --now docker
+  - systemctl restart docker
 
-  # Install UV and Just
-  - sudo -u ubuntu curl -LsSf https://astral.sh/uv/install.sh | sudo -u ubuntu env UV_INSTALL_DIR="/home/ubuntu/.local/bin" sh
-  - curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin
+  # Install UV and Just (Traffic goes through the proxy defined in /etc/environment)
+  - sudo -u ubuntu bash -c 'export http_proxy="http://172.16.255.20:3128" https_proxy="http://172.16.255.20:3128"; curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="/home/ubuntu/.local/bin" sh'
+  - sudo -u ubuntu bash -c 'export http_proxy="http://172.16.255.20:3128" https_proxy="http://172.16.255.20:3128"; curl --proto "=https" --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin'
 
-  # Clone Repositories First
-  - sudo -u ubuntu git clone https://github.com/sslab-gatech/CRSBench.git /home/ubuntu/CRSBench
-  - sudo -u ubuntu git clone https://github.com/ossf/oss-crs.git /home/ubuntu/oss-crs
-  - sudo -u ubuntu git clone --depth 1 https://github.com/Team-Atlanta/atlantis-java.git /tmp/atlantis-java
+  # Clone Repositories First (Git respects the exported proxies)
+  - sudo -u ubuntu bash -c 'export http_proxy="http://172.16.255.20:3128" https_proxy="http://172.16.255.20:3128"; git clone https://github.com/sslab-gatech/CRSBench.git /home/ubuntu/CRSBench'
+  - sudo -u ubuntu bash -c 'export http_proxy="http://172.16.255.20:3128" https_proxy="http://172.16.255.20:3128"; git clone https://github.com/ossf/oss-crs.git /home/ubuntu/oss-crs'
+  - sudo -u ubuntu bash -c 'export http_proxy="http://172.16.255.20:3128" https_proxy="http://172.16.255.20:3128"; git clone --depth 1 https://github.com/Team-Atlanta/atlantis-java.git /tmp/atlantis-java'
 
   # Write the API keys AFTER the clone
   - |
     sudo -u ubuntu bash -c 'cat <<EOF > /home/ubuntu/CRSBench/.env
-    CRSBENCH_LLM_UPSTREAM_BASE_URL=https://api.openai.com/v1
-    CRSBENCH_LLM_UPSTREAM_API_KEY=YOUR_GEMINI_API_KEY_HERE
-    EOF'
-  - chmod 0600 /home/ubuntu/CRSBench/.env
-
-  # Bootstrap the Environment
-  - sudo -u ubuntu /home/ubuntu/.local/bin/uv sync --project /home/ubuntu/CRSBench
-
-final_message: "Cleanroom provisioned successfully after $UPTIME seconds."
+    CRSBENCH_LLM_
