@@ -8,6 +8,10 @@ VM1_SNIPPET_PATH="local:snippets/cloud-init-logging.yaml"
 VM2_SNIPPET_PATH="local:snippets/cloud-init-cleanroom.yaml"
 VM1_ID="301"
 VM2_ID="302"
+# Accept CLI arguments for resource starvation, with fallback defaults
+TARGET_CORES=${1:-8}
+TARGET_RAM=${2:-32768}
+TARGET_RATE=${3:-20}
 
 # ==========================================
 # Clean Slate Safeguard (Idempotency)
