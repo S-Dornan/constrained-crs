@@ -36,11 +36,11 @@ echo "[*] Initializing CRS Cleanroom Architecture..."
 # 1. Log Vault Provisioning (Persistent)
 # ==========================================
 if qm status "$VM1_ID" >/dev/null 2>&1; then
-  echo "[*] Log Vault ($VM1_ID) already exists. Ensuring it is running..."
-  # Check if it's actually running; if not, turn it on
-  if [ "$(qm status $VM1_ID | awk '{print $2}')" != "running" ]; then
-    qm start "$VM1_ID"
-  fi
+  echo "[*] Log Vault ($VM1_ID) already exists. Power-cycling to flush port 9001..."
+  qm stop "$VM1_ID" >/dev/null 2>&1 || true
+  sleep 2
+  qm start "$VM1_ID"
+  echo "Log Vault rebooted. Socket cleared."
 else
   echo "[*] Log Vault not found. Provisioning crs-log-vault ($VM1_ID)..."
   qm clone $TEMPLATE_ID $VM1_ID --name crs-log-vault --full true --storage $STORAGE
