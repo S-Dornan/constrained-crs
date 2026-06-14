@@ -73,11 +73,11 @@ runcmd:
 
   # Install UV and Just (Traffic goes through the proxy defined in /etc/environment)
   - sudo -u ubuntu bash -c 'export http_proxy="http://172.16.255.20:3128" https_proxy="http://172.16.255.20:3128"; curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="/home/ubuntu/.local/bin" sh'
-  - sudo -u ubuntu bash -c 'export http_proxy="http://172.16.255.20:3128" https_proxy="http://172.16.255.20:3128"; curl --proto "=https" --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin'
+  - sudo -u ubuntu bash -c 'export http_proxy="http://172.16.255.20:3128" https_proxy="http://172.16.255.20:3128"; curl --proto "=https" --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /home/ubuntu/.local/bin'
 
   # Clone Repositories First (Git respects the exported proxies)
   - sudo -u ubuntu bash -c 'export http_proxy="http://172.16.255.20:3128" https_proxy="http://172.16.255.20:3128"; git clone https://github.com/sslab-gatech/CRSBench.git /home/ubuntu/CRSBench'
-  - sudo -u ubuntu bash -c 'export http_proxy="http://172.16.255.20:3128" https_proxy="http://172.16.255.20:3128"; git clone https://github.com/ossf/oss-crs.git /home/ubuntu/oss-crs'
+  - sudo -u ubuntu bash -c 'export http_proxy="http://172.16.255.20:3128" https_proxy="http://172.16.255.20:3128"; git clone https://github.com/ossf/oss-crs.git /home/ubuntu/CRSBench/oss-crs'
   - sudo -u ubuntu bash -c 'export http_proxy="http://172.16.255.20:3128" https_proxy="http://172.16.255.20:3128"; git clone --depth 1 https://github.com/Team-Atlanta/atlantis-java.git /tmp/atlantis-java'
 
   # Write the API keys AFTER the clone
