@@ -32,9 +32,14 @@ write_files:
       After=multi-user.target
 
       [Service]
+      Type=simple
+      User=root
+      ExecStartPre=/bin/touch /home/ubuntu/experiment-telemetry.log
+      ExecStartPre=/bin/chown ubuntu:ubuntu /home/ubuntu/experiment-telemetry.log
+      ExecStartPre=/bin/chmod 666 /dev/ttyS1
       ExecStart=/bin/sh -c 'stty -F /dev/ttyS1 115200 raw -echo && cat /dev/ttyS1 >> /home/ubuntu/experiment-telemetry.log'
       Restart=always
-      User=ubuntu
+      RestartSec=2
 
       [Install]
       WantedBy=multi-user.target
