@@ -57,6 +57,10 @@ write_files:
       Environment="NO_PROXY=localhost,127.0.0.1,172.16.255.21,172.16.255.20"
 
 runcmd:
+  # Wait for the Log Vault (VM 301) Squid proxy to come online before proceeding
+  - "while ! bash -c 'echo > /dev/tcp/172.16.255.20/3128' 2>/dev/null; do sleep 5; done"
+
+  # Enable QEMU
   - systemctl enable --now qemu-guest-agent
   - update-grub
   
