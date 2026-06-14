@@ -55,8 +55,8 @@ write_files:
       http_access allow backplane
       http_access deny all
 
-      # Fatten the cache: 80GB storage, max object size 5GB (for Docker layers)
-      cache_dir ufs /var/spool/squid 80000 16 256
+      # Fatten the cache: 10GB storage, max object size 5GB (for Docker layers)
+      cache_dir ufs /var/spool/squid 10000 16 256
       maximum_object_size 5000 MB
       cache_mem 1024 MB
 
@@ -69,13 +69,17 @@ write_files:
 runcmd:
   - systemctl enable --now qemu-guest-agent
   
-  # Install Docker Native
-  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+  # Install Docker Native (Bulletproofed)
+  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --yes --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
   - echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-  - apt-get update
-  - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  - "while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do sleep 5; done; apt-get update"
+  - "while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do sleep 5; done; apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin"
   - systemctl enable --now docker
 
+  # Initialize Squid cache directories before starting
+  - squid -z
+  - sleep 5
+  
   # Enable and restart services to apply configurations
   - systemctl enable --now serial-logger
   - systemctl restart squid
