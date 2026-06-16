@@ -97,6 +97,7 @@ write_files:
 
   - path: /home/ubuntu/monitors/.env
     content: |
+      LOG_FILE=__LOG_FILE__
       HEALTH_PUSH_URL=__HEALTH_URL__
       STREAM_PUSH_URL=__STREAM_URL__
       PUSH_INTERVAL=60
