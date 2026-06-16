@@ -84,7 +84,7 @@ else
   qm resize $VM1_ID scsi0 32G
   
   echo "Configuring Log Vault as Serial Receiver..."
-  qm set $VM1_ID --args "-chardev socket,id=serial_log,host=127.0.0.1,port=9001,server=on,wait=off -device isa-serial,chardev=serial_log"
+  qm set $VM1_ID --args "-chardev socket,id=serial_log,host=127.0.0.1,port=9001,server=on,wait=off -device isa-serial,chardev=serial_log,index=1"
   
   qm start $VM1_ID
   echo "crs-log-vault is booting!"
@@ -122,7 +122,7 @@ qm set $VM2_ID \
 qm resize $VM2_ID scsi0 32G
 
 echo "Configuring Cleanroom as Serial Sender..."
-qm set $VM2_ID --args "-chardev socket,id=serial_log,host=127.0.0.1,port=9001 -device isa-serial,chardev=serial_log"
+qm set $VM2_ID --args "-chardev socket,id=serial_log,host=127.0.0.1,port=9001 -device isa-serial,chardev=serial_log,index=1"
 
 qm start $VM2_ID
 echo "crs-cleanroom is booting!"
