@@ -38,6 +38,7 @@ if [ -f ".env" ]; then
   source .env
   
   # Log Vault Secrets
+  sed -i "s|__LOG_FILE__|$LOG_FILE|g" /var/lib/vz/snippets/cloud-init-logging.yaml
   sed -i "s|__HEALTH_URL__|$HEALTH_PUSH_URL|g" /var/lib/vz/snippets/cloud-init-logging.yaml
   sed -i "s|__STREAM_URL__|$STREAM_PUSH_URL|g" /var/lib/vz/snippets/cloud-init-logging.yaml
   sed -i "s|__CF_ID__|$CF_CLIENT_ID|g" /var/lib/vz/snippets/cloud-init-logging.yaml
