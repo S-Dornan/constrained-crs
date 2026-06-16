@@ -99,24 +99,24 @@ write_files:
       HEALTH_PUSH_URL=__HEALTH_URL__
       STREAM_PUSH_URL=__STREAM_URL__
       PUSH_INTERVAL=60
-      CF_CLIENT_ID=__CF_ID__.access
+      CF_CLIENT_ID=__CF_ID__
       CF_CLIENT_SECRET=__CF_SECRET__
 
 runcmd:
   - systemctl enable --now qemu-guest-agent
   
-  # Install Docker Native (Bulletproofed)
+  # Install Docker Native (Bulletproofed with dpkg repair)
   - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --yes --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
   - echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-  - "while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do sleep 5; done; apt-get update"
-  - "while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do sleep 5; done; apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin"
+  
+  # Wait for locks, repair dpkg if interrupted by cloud-init upgrades, then install
+  - "while fuser /var/lib/dpkg/lock-frontend /var/lib/apt/lists/lock /var/lib/dpkg/lock >/dev/null 2>&1; do sleep 5; done"
+  - dpkg --configure -a || true
+  - apt-get update
+  - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
   - systemctl enable --now docker
 
-  # Initialize Squid cache directories before starting
-  - squid -z
-  - sleep 5
-  
-  # Enable and restart services to apply configurations
+  # Enable and restart services to apply configurations (Squid cache built automatically)
   - systemctl enable --now serial-logger
   - systemctl restart squid
 
