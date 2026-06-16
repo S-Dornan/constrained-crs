@@ -31,20 +31,24 @@ cp cloud-init-logging.yaml /var/lib/vz/snippets/cloud-init-logging.yaml
 cp cloud-init-cleanroom.yaml /var/lib/vz/snippets/cloud-init-cleanroom.yaml
 
 # ==========================================
-# Secret Injection (Log Vault Observability)
+# Secret Injection (Architecture Observability & Auth)
 # ==========================================
-# Assuming you have a local .env file on the host with your secrets
 if [ -f ".env" ]; then
-  echo "[*] Injecting secrets into logging snippet..."
+  echo "[*] Injecting secrets into staged snippets..."
   source .env
   
-  # Inject secrets directly into the staged Proxmox snippet
+  # Log Vault Secrets
   sed -i "s|__HEALTH_URL__|$HEALTH_PUSH_URL|g" /var/lib/vz/snippets/cloud-init-logging.yaml
   sed -i "s|__STREAM_URL__|$STREAM_PUSH_URL|g" /var/lib/vz/snippets/cloud-init-logging.yaml
   sed -i "s|__CF_ID__|$CF_CLIENT_ID|g" /var/lib/vz/snippets/cloud-init-logging.yaml
   sed -i "s|__CF_SECRET__|$CF_CLIENT_SECRET|g" /var/lib/vz/snippets/cloud-init-logging.yaml
+  
+  # Cleanroom Fuzzer Secrets
+  # Cleanroom Fuzzer Secrets
+  sed -i "s|__BASE_URL__|$CRSBENCH_LLM_UPSTREAM_BASE_URL|g" /var/lib/vz/snippets/cloud-init-cleanroom.yaml
+  sed -i "s|__GEMINI_API_KEY__|$CRSBENCH_LLM_UPSTREAM_API_KEY|g" /var/lib/vz/snippets/cloud-init-cleanroom.yaml
 else
-  echo "[!] WARNING: .env file not found on host. Monitors will fail to authenticate."
+  echo "[!] WARNING: .env file not found on host. Architecture will fail to authenticate."
 fi
 
 echo "[*] Initializing CRS Cleanroom Architecture..."

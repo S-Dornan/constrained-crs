@@ -87,8 +87,8 @@ runcmd:
   # Write the API keys AFTER the clone
   - |
     sudo -u ubuntu bash -c 'cat <<EOF > /home/ubuntu/CRSBench/.env
-    CRSBENCH_LLM_UPSTREAM_BASE_URL=https://api.openai.com/v1
-    CRSBENCH_LLM_UPSTREAM_API_KEY=YOUR_GEMINI_API_KEY_HERE
+    CRSBENCH_LLM_UPSTREAM_BASE_URL=__BASE_URL__
+    CRSBENCH_LLM_UPSTREAM_API_KEY=__GEMINI_API_KEY__
     EOF'
   - chmod 0600 /home/ubuntu/CRSBench/.env
 
