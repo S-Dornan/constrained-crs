@@ -65,6 +65,42 @@ write_files:
       refresh_pattern ^gopher:        1440    0%      1440
       refresh_pattern -i (/cgi-bin/|\?) 0     0%      0
       refresh_pattern .               0       20%     4320
+  
+  # 3. Provision the Uptime Kuma Dual-Monitor Stack
+  - path: /home/ubuntu/monitors/docker-compose.yml
+    content: |
+      services:
+        health-monitor:
+          image: ghcr.io/s-dornan/pve-push-monitor:latest
+          container_name: uptime-kuma-health
+          restart: always
+          environment:
+            - MONITOR_TYPE=health
+            - PUSH_URL=${HEALTH_PUSH_URL}
+            - PUSH_INTERVAL=${PUSH_INTERVAL}
+            - CF_CLIENT_ID=${CF_CLIENT_ID}
+            - CF_CLIENT_SECRET=${CF_CLIENT_SECRET}
+
+        stream-monitor:
+          image: ghcr.io/s-dornan/pve-push-monitor:latest
+          container_name: uptime-kuma-stream
+          restart: always
+          environment:
+            - MONITOR_TYPE=stream
+            - PUSH_URL=${STREAM_PUSH_URL}
+            - PUSH_INTERVAL=${PUSH_INTERVAL}
+            - CF_CLIENT_ID=${CF_CLIENT_ID}
+            - CF_CLIENT_SECRET=${CF_CLIENT_SECRET}
+          volumes:
+            - /home/ubuntu/experiment-telemetry.log:/var/log/experiment-telemetry.log:ro
+
+  - path: /home/ubuntu/monitors/.env
+    content: |
+      HEALTH_PUSH_URL=__HEALTH_URL__
+      STREAM_PUSH_URL=__STREAM_URL__
+      PUSH_INTERVAL=60
+      CF_CLIENT_ID=__CF_ID__.access
+      CF_CLIENT_SECRET=__CF_SECRET__
 
 runcmd:
   - systemctl enable --now qemu-guest-agent
@@ -83,5 +119,9 @@ runcmd:
   # Enable and restart services to apply configurations
   - systemctl enable --now serial-logger
   - systemctl restart squid
+
+  # Spin up the Observability Stack
+  - chown -R ubuntu:ubuntu /home/ubuntu/monitors
+  - cd /home/ubuntu/monitors && docker compose pull && docker compose up -d --remove-orphans
 
 final_message: "Log Vault provisioned securely with Docker and Squid after $UPTIME seconds."

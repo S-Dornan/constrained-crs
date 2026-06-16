@@ -30,6 +30,23 @@ mkdir -p /var/lib/vz/snippets
 cp cloud-init-logging.yaml /var/lib/vz/snippets/cloud-init-logging.yaml
 cp cloud-init-cleanroom.yaml /var/lib/vz/snippets/cloud-init-cleanroom.yaml
 
+# ==========================================
+# Secret Injection (Log Vault Observability)
+# ==========================================
+# Assuming you have a local .env file on the host with your secrets
+if [ -f ".env" ]; then
+  echo "[*] Injecting secrets into logging snippet..."
+  source .env
+  
+  # Inject secrets directly into the staged Proxmox snippet
+  sed -i "s|__HEALTH_URL__|$HEALTH_PUSH_URL|g" /var/lib/vz/snippets/cloud-init-logging.yaml
+  sed -i "s|__STREAM_URL__|$STREAM_PUSH_URL|g" /var/lib/vz/snippets/cloud-init-logging.yaml
+  sed -i "s|__CF_ID__|$CF_CLIENT_ID|g" /var/lib/vz/snippets/cloud-init-logging.yaml
+  sed -i "s|__CF_SECRET__|$CF_CLIENT_SECRET|g" /var/lib/vz/snippets/cloud-init-logging.yaml
+else
+  echo "[!] WARNING: .env file not found on host. Monitors will fail to authenticate."
+fi
+
 echo "[*] Initializing CRS Cleanroom Architecture..."
 
 # ==========================================
