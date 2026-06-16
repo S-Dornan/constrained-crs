@@ -87,6 +87,7 @@ write_files:
           restart: always
           environment:
             - MONITOR_TYPE=stream
+            - LOG_FILE=${LOG_FILE}
             - PUSH_URL=${STREAM_PUSH_URL}
             - PUSH_INTERVAL=${PUSH_INTERVAL}
             - CF_CLIENT_ID=${CF_CLIENT_ID}
