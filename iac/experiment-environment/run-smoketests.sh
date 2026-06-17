@@ -30,23 +30,12 @@ for EXP in "${EXPERIMENTS[@]}"; do
   # 1. Build the fresh architecture using the parameterized script
   ./vm-config.sh "$CORES" "$RAM" "$RATE"
 
-  # 2. Enforce Strict Boot Order (Receiver BEFORE Broadcaster)
-  echo -n "Waiting 45s for OS and QEMU Guest Agent to boot"
-  for i in {1..45}; do
-    echo -n "."
-    sleep 1
+  # 2. Await Cleanroom Initialization
+  echo "Waiting for Cleanroom QEMU Guest Agent..."
+  while ! qm guest ping $VM2_ID >/dev/null 2>&1; do
+    sleep 5
   done
-  echo " [DONE]"
 
-  # FIRST: Ensure the Log Vault is fully online and actively listening
-  echo -n "Polling Log Vault (VM 301) Cloud-Init status"
-  while ! qm guest exec $VM1_ID -- bash -c "cloud-init status" 2>/dev/null | grep -q "done"; do
-    echo -n "."
-    sleep 10
-  done
-  echo " [READY]"
-
-  # SECOND: Ensure the Cleanroom is fully built before sending the execution command
   echo -n "Polling Cleanroom (VM 302) Cloud-Init status"
   while ! qm guest exec $VM2_ID -- bash -c "cloud-init status" 2>/dev/null | grep -q "done"; do
     echo -n "."
