@@ -105,7 +105,12 @@ write_files:
       CF_CLIENT_SECRET=__CF_SECRET__
 
 runcmd:
+  # Enable QEMU Agent
   - systemctl enable --now qemu-guest-agent
+
+  # Allow inbound access to Squid Proxy
+  - iptables -I INPUT 1 -p tcp --dport 3128 -j ACCEPT
+
   
   # Install Docker Native (Bulletproofed with dpkg repair)
   - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --yes --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
