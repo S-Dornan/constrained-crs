@@ -45,7 +45,6 @@ if [ -f ".env" ]; then
   sed -i "s|__CF_SECRET__|$CF_CLIENT_SECRET|g" /var/lib/vz/snippets/cloud-init-logging.yaml
   
   # Cleanroom Fuzzer Secrets
-  # Cleanroom Fuzzer Secrets
   sed -i "s|__BASE_URL__|$CRSBENCH_LLM_UPSTREAM_BASE_URL|g" /var/lib/vz/snippets/cloud-init-cleanroom.yaml
   sed -i "s|__GEMINI_API_KEY__|$CRSBENCH_LLM_UPSTREAM_API_KEY|g" /var/lib/vz/snippets/cloud-init-cleanroom.yaml
 else
@@ -98,6 +97,22 @@ while ! ss -lptn | grep -q ":9001 "; do
   sleep 1
 done
 echo "Port 9001 is active. Proceeding with Cleanroom boot."
+
+# ==========================================
+# Strict Dependency Lock: Await Log Vault
+# ==========================================
+echo "Waiting for Log Vault QEMU Guest Agent to initialize..."
+while ! qm guest ping $VM1_ID >/dev/null 2>&1; do
+  sleep 5
+done
+
+echo -n "Polling Log Vault Cloud-Init status (This builds Docker and Squid)"
+while ! qm guest exec $VM1_ID -- bash -c "cloud-init status" 2>/dev/null | grep -q "done"; do
+  echo -n "."
+  sleep 10
+done
+echo " [READY]"
+echo "Log Vault is fully online. Proceeding with Cleanroom sequence."
 
 # ==========================================
 # 2. Cleanroom Provisioning (Ephemeral)
