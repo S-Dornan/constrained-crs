@@ -96,7 +96,7 @@ echo "Waiting for Log Vault hypervisor to bind port 9001..."
 while ! ss -lptn | grep -q ":9001 "; do
   sleep 1
 done
-echo "Port 9001 is active. Proceeding with Cleanroom boot."
+echo "Port 9001 is active. Proceeding with Log Vault boot sequence."
 
 # ==========================================
 # Strict Dependency Lock: Await Log Vault
