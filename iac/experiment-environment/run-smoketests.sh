@@ -30,9 +30,9 @@ for EXP in "${EXPERIMENTS[@]}"; do
   # 1. Build the fresh architecture using the parameterized script
   ./vm-config.sh "$CORES" "$RAM" "$RATE"
 
-  # 2. Await Cleanroom Initialization
+# 2. Await Cleanroom Initialization
   echo "Waiting for Cleanroom QEMU Guest Agent..."
-  while ! qm guest ping $VM2_ID >/dev/null 2>&1; do
+  while ! qm agent $VM2_ID ping >/dev/null 2>&1; do
     sleep 5
   done
 
