@@ -102,7 +102,7 @@ echo "Port 9001 is active. Proceeding with Cleanroom boot."
 # Strict Dependency Lock: Await Log Vault
 # ==========================================
 echo "Waiting for Log Vault QEMU Guest Agent to initialize..."
-while ! qm guest ping $VM1_ID >/dev/null 2>&1; do
+while ! qm agent $VM1_ID ping >/dev/null 2>&1; do
   sleep 5
 done
 
