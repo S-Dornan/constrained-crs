@@ -84,7 +84,15 @@ for EXP in "${EXPERIMENTS[@]}"; do
 
   # Push the structured trial framework artifacts over the isolated backplane using the injected SSH key
   echo "Exfiltrating structured framework artifacts to Log Vault..."
-  qm guest exec $VM2_ID -- sudo -u ubuntu bash -c "rsync -avz -e 'ssh -o StrictHostKeyChecking=no' /home/ubuntu/CRSBench/results/ ubuntu@172.16.255.20:/home/ubuntu/vault-results/$NAME/"
+  qm guest exec $VM2_ID -- sudo -u ubuntu bash -c "cd /home/ubuntu/CRSBench/results && rsync -avz -e 'ssh -i /home/ubuntu/.ssh/id_ed25519 -o StrictHostKeyChecking=no' . ubuntu@172.16.255.20:/home/ubuntu/vault-results/$NAME/"
+
+  # Wait dynamically for the SSH/Rsync TCP connection to drop from ESTABLISHED
+  echo -n "Waiting for network buffer flush and TCP connection closure"
+  while qm guest exec $VM2_ID -- sudo -u ubuntu ss -tn 2>/dev/null | grep -q "172.16.255.20:22.*ESTABLISHED"; do
+    echo -n "."
+    sleep 2
+  done
+  echo " [DATA EXFILTRATION COMPLETE]"
 
   # Archive the serial telemetry into the folder, then truncate the original file so it's clean for the next run
   echo "Archiving serial telemetry for $NAME..."
@@ -96,7 +104,6 @@ for EXP in "${EXPERIMENTS[@]}"; do
   else
     echo "$(date) | SMOKE TEST COMPLETED: $NAME | Finished in $ELAPSED seconds." >> /root/smoketest-runs.log
   fi
-  
 done
 
 # ==========================================
