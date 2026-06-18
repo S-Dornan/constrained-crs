@@ -35,4 +35,24 @@ tail -f /var/log/cloud-init-output.log
 
 ```
 
-If that log finishes with your `Cleanroom provisioned successfully` message, your baseline is officially complete. You can leave the actual resource starvation tests for tomorrow, knowing the factory floor is built and fully operational.
+If that log finishes with your `Cleanroom provisioned successfully` message, your baseline is officially complete and your environment will run the smoke tests and experiments.
+
+**4. Run the smoke tests**
+
+Run the smoke tests with the `run-smoketests.sh` file. It should take about an hour
+
+```bash
+chmod +x run-smoketests.sh
+nohup ./run-smoketests.sh > smoketest-execution.log 2>&1 &
+```
+
+You can view the output of the smoke tests with the folowing command:
+```bash
+tail -f smoketest-execution.log
+```
+
+And when you've seen enough of that you can exit the viewer with `Ctrl-C`, the smoke tests will continue to run for the next hour.
+
+It's also worth noting that the experiment includes push monitors which are powered by Uptime Kuma; make sure those monitors are out of maintenance mode of you'd like to receive alerts on the length of time these are taking.
+
+Once those smoke tests have run and passed, you can kill the task with `pkill -f run-smoketests.sh`
