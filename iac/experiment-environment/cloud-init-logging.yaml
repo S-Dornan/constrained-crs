@@ -116,7 +116,7 @@ write_files:
   # 5. Automate the Cloud Sync via Cron
   - path: /etc/cron.d/rclone-sync
     content: |
-      */15 * * * * root rclone copy /home/ubuntu/experiment-telemetry.log __RCLONE_REMOTE_PATH__ >> /var/log/rclone.log 2>&1
+      */15 * * * * root rclone copy /home/ubuntu/experiment-telemetry.log "__RCLONE_REMOTE_PATH__" >> /var/log/rclone.log 2>&1
 
 runcmd:
   # Enable QEMU Agent
