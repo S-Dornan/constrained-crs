@@ -96,8 +96,8 @@ else
   
   echo "Applying static, lightweight footprint to Log Vault..."
   qm set $VM1_ID \
-    --memory 2048 \
-    --cores 1 \
+    --memory 4096 \
+    --cores 2 \
     --agent 1 \
     --net0 virtio,bridge=vmbr0,rate=$TARGET_RATE \
     --net1 virtio,bridge=vmbr1,rate=$TARGET_RATE
