@@ -142,8 +142,10 @@ runcmd:
   - systemctl enable --now serial-logger
   - systemctl restart squid
 
+  # Grant ownership to the full Ubuntu folder
+  - chown -R ubuntu:ubuntu /home/ubuntu
+  
   # Spin up the Observability Stack
-  - chown -R ubuntu:ubuntu /home/ubuntu/monitors
   - cd /home/ubuntu/monitors && docker compose pull && docker compose up -d --remove-orphans
 
 final_message: "Log Vault provisioned securely with Docker and Squid after $UPTIME seconds."

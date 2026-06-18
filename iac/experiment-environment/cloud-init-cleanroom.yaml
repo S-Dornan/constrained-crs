@@ -27,6 +27,7 @@ packages:
   - python3
   - python3-pip
   - tmux
+  - rsync
 
 write_files:
   - path: /etc/default/grub.d/99-custom-timeout.cfg
