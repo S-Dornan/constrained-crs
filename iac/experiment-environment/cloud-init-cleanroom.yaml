@@ -61,7 +61,7 @@ write_files:
   # Inject the Private SSH Key for Data Exfiltration over the backplane
   - path: /home/ubuntu/.ssh/id_ed25519
     permissions: '0600'
-    owner: ubuntu:ubuntu
+    # owner: ubuntu:ubuntu # Temporarily removing this to cross-check if that fixes the VM
     encoding: b64
     content: __SYNC_PRIV_KEY_B64__
 
