@@ -33,6 +33,8 @@ cp cloud-init-cleanroom.yaml /var/lib/vz/snippets/cloud-init-cleanroom.yaml
 # ==========================================
 # Secret Injection (Architecture Observability & Auth)
 # ==========================================
+
+# 1. Handle .env Secrets
 if [ -f ".env" ]; then
   echo "[*] Injecting secrets into staged snippets..."
   source .env
@@ -48,7 +50,17 @@ if [ -f ".env" ]; then
   sed -i "s|__BASE_URL__|$CRSBENCH_LLM_UPSTREAM_BASE_URL|g" /var/lib/vz/snippets/cloud-init-cleanroom.yaml
   sed -i "s|__GEMINI_API_KEY__|$CRSBENCH_LLM_UPSTREAM_API_KEY|g" /var/lib/vz/snippets/cloud-init-cleanroom.yaml
 else
-  echo "[!] WARNING: .env file not found on host. Architecture will fail to authenticate."
+  echo "[!] WARNING: .env file not found. Architecture will fail to authenticate."
+fi
+
+# 2. Handle Rclone Configuration
+if [ -f "rclone.conf" ]; then
+  echo "[*] Injecting Rclone configuration..."
+  RCLONE_B64=$(base64 -w 0 rclone.conf)
+  sed -i "s|__RCLONE_CONF_B64__|$RCLONE_B64|g" /var/lib/vz/snippets/cloud-init-logging.yaml
+else
+  echo "[!] WARNING: rclone.conf not found. Log syncing will be disabled."
+  sed -i "s|__RCLONE_CONF_B64__||g" /var/lib/vz/snippets/cloud-init-logging.yaml
 fi
 
 echo "[*] Initializing CRS Cleanroom Architecture..."
