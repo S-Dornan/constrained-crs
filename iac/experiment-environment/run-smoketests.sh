@@ -60,7 +60,7 @@ for EXP in "${EXPERIMENTS[@]}"; do
   echo "Triggering Valkey Queue..."
   qm guest exec $VM2_ID -- sudo -u ubuntu tmux new-session -d -s valkey 'cd /home/ubuntu/CRSBench && /home/ubuntu/.local/bin/uv run python scripts/valkey-helper.py start'
   
-  sleep 10
+  sleep 30
   
   echo "Triggering CRSBench Worker and Runner..."
   qm guest exec $VM2_ID -- sudo -u ubuntu tmux new-session -d -s worker "cd /home/ubuntu/CRSBench && /home/ubuntu/.local/bin/uv run crsbench worker --experiment-config $CONFIG 2>&1 | sudo tee /dev/ttyS1"
