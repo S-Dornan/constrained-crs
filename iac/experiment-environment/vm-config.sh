@@ -83,7 +83,7 @@ else
     --memory 2048 \
     --cores 1 \
     --agent 1 \
-    --net0 virtio,bridge=vmbr,rate=$TARGET_RATE \
+    --net0 virtio,bridge=vmbr0,rate=$TARGET_RATE \
     --net1 virtio,bridge=vmbr1,rate=$TARGET_RATE
 
   qm set $VM1_ID \
