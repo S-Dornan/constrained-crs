@@ -1,4 +1,6 @@
 #cloud-config
+hostname: crs-cleanroom
+fqdn: crs-cleanroom.local
 package_update: true
 package_upgrade: false
 
