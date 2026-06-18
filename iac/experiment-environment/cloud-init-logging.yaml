@@ -1,4 +1,6 @@
 #cloud-config
+hostname: crs-log-vault
+fqdn: crs-log-vault.local
 package_update: true
 package_upgrade: false
 
