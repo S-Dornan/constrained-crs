@@ -87,7 +87,7 @@ runcmd:
   # Create the docker group
   - groupadd docker
   
-  # CRITICAL: Manually add the user to the group and refresh
+  # Manually add the user to the group and refresh
   - usermod -aG docker ubuntu
   
   # Reload systemd to catch the Docker proxy drop-in, then enable Docker
@@ -96,6 +96,9 @@ runcmd:
   - systemctl restart docker
   - "while ! docker info >/dev/null 2>&1; do sleep 2; done"
 
+  # Reclaim the home directory from root
+  - chown -R ubuntu:ubuntu /home/ubuntu
+  
   # Install UV and Just (Traffic goes through the proxy defined in /etc/environment)
   - sudo -u ubuntu bash -c 'export http_proxy="http://172.16.255.20:3128" https_proxy="http://172.16.255.20:3128"; curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="/home/ubuntu/.local/bin" sh'
   - sudo -u ubuntu bash -c 'export http_proxy="http://172.16.255.20:3128" https_proxy="http://172.16.255.20:3128"; curl --proto "=https" --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /home/ubuntu/.local/bin'
