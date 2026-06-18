@@ -138,7 +138,7 @@ qm set $VM2_ID \
   --cores $TARGET_CORES \
   --agent 1 \
   --net0 virtio,bridge=vmbr0,rate=$TARGET_RATE \
-  --net1 virtio,bridge=vmbr1
+  --net1 virtio,bridge=vmbr1,rate=$TARGET_RATE
 
 qm set $VM2_ID \
   --ipconfig0 ip=dhcp \
