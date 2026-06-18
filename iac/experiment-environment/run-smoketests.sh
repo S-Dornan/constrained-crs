@@ -43,6 +43,19 @@ for EXP in "${EXPERIMENTS[@]}"; do
   done
   echo " [READY]"
 
+  # ==========================================
+  # Apply Kernel Parameters
+  # ==========================================
+  echo "Rebooting Cleanroom to apply GRUB cgroup parameters..."
+  qm reboot $VM2_ID
+  sleep 15
+
+  echo "Waiting for Cleanroom to return online..."
+  while ! qm agent $VM2_ID ping >/dev/null 2>&1; do
+    sleep 5
+  done
+  echo "Cleanroom online with strict Docker isolation."
+
   # 3. Inject the Fuzzer Commands via detached tmux sessions
   echo "Triggering Valkey Queue..."
   qm guest exec $VM2_ID -- sudo -u ubuntu tmux new-session -d -s valkey 'cd /home/ubuntu/CRSBench && /home/ubuntu/.local/bin/uv run python scripts/valkey-helper.py start'
