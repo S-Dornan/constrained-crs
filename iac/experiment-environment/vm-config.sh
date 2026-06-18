@@ -49,6 +49,7 @@ if [ -f ".env" ]; then
   # Cleanroom Fuzzer Secrets
   sed -i "s|__BASE_URL__|$CRSBENCH_LLM_UPSTREAM_BASE_URL|g" /var/lib/vz/snippets/cloud-init-cleanroom.yaml
   sed -i "s|__GEMINI_API_KEY__|$CRSBENCH_LLM_UPSTREAM_API_KEY|g" /var/lib/vz/snippets/cloud-init-cleanroom.yaml
+  sed -i "s|__RCLONE_REMOTE_PATH__|$RCLONE_REMOTE_PATH|g" /var/lib/vz/snippets/cloud-init-logging.yaml
 else
   echo "[!] WARNING: .env file not found. Architecture will fail to authenticate."
 fi
