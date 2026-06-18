@@ -1,4 +1,4 @@
-[drive-remote]
+[CloudStorage]
 type = drive
 scope = drive.file
 token = {"access_token":"REDACTED","token_type":"Bearer","refresh_token":"REDACTED","expiry":"2026-06-18T16:10:27.784842105+01:00","expires_in":3599}
