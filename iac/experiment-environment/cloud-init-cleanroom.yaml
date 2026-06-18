@@ -1,4 +1,6 @@
 #cloud-config
+hostname: crs-cleanroom
+fqdn: crs-cleanroom.local
 package_update: true
 package_upgrade: false
 
@@ -62,18 +64,30 @@ runcmd:
 
   # Enable QEMU
   - systemctl enable --now qemu-guest-agent
+
+  # Enable explicit cgroups v2 with cpuset for strict docker isolation
+  - sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="/GRUB_CMDLINE_LINUX_DEFAULT="systemd.unified_cgroup_hierarchy=1 cgroup_enable=cpuset cgroup_memory=1 cgroup_enable=memory /g' /etc/default/grub
   - update-grub
   
-  # Install Docker
+  # Install Docker (Bulletproofed with dpkg wait loop)
   - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
   - echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+  - "while fuser /var/lib/dpkg/lock-frontend /var/lib/apt/lists/lock /var/lib/dpkg/lock >/dev/null 2>&1; do sleep 5; done"
+  - dpkg --configure -a || true
   - apt-get update
   - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+  # Create the docker group
+  - groupadd docker
+  
+  # CRITICAL: Manually add the user to the group and refresh
+  - usermod -aG docker ubuntu
   
   # Reload systemd to catch the Docker proxy drop-in, then enable Docker
   - systemctl daemon-reload
   - systemctl enable --now docker
   - systemctl restart docker
+  - "while ! docker info >/dev/null 2>&1; do sleep 2; done"
 
   # Install UV and Just (Traffic goes through the proxy defined in /etc/environment)
   - sudo -u ubuntu bash -c 'export http_proxy="http://172.16.255.20:3128" https_proxy="http://172.16.255.20:3128"; curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="/home/ubuntu/.local/bin" sh'

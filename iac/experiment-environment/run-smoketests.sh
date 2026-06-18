@@ -30,30 +30,17 @@ for EXP in "${EXPERIMENTS[@]}"; do
   # 1. Build the fresh architecture using the parameterized script
   ./vm-config.sh "$CORES" "$RAM" "$RATE"
 
-# 2. Await Cleanroom Initialization
-  echo "Waiting for Cleanroom QEMU Guest Agent..."
-  while ! qm agent $VM2_ID ping >/dev/null 2>&1; do
-    sleep 5
-  done
-
-  echo -n "Polling Cleanroom (VM 302) Cloud-Init status"
-  while ! qm guest exec $VM2_ID -- bash -c "cloud-init status" 2>/dev/null | grep -q "done"; do
-    echo -n "."
-    sleep 10
-  done
-  echo " [READY]"
-
-  # 3. Inject the Fuzzer Commands via detached tmux sessions
+  # 2. Inject the Fuzzer Commands via detached tmux sessions
   echo "Triggering Valkey Queue..."
   qm guest exec $VM2_ID -- sudo -u ubuntu tmux new-session -d -s valkey 'cd /home/ubuntu/CRSBench && /home/ubuntu/.local/bin/uv run python scripts/valkey-helper.py start'
   
-  sleep 10
+  sleep 30
   
   echo "Triggering CRSBench Worker and Runner..."
   qm guest exec $VM2_ID -- sudo -u ubuntu tmux new-session -d -s worker "cd /home/ubuntu/CRSBench && /home/ubuntu/.local/bin/uv run crsbench worker --experiment-config $CONFIG 2>&1 | sudo tee /dev/ttyS1"
   qm guest exec $VM2_ID -- sudo -u ubuntu tmux new-session -d -s runner "cd /home/ubuntu/CRSBench && /home/ubuntu/.local/bin/uv run crsbench run --experiment-config $CONFIG 2>&1 | sudo tee /dev/ttyS1"
 
-  # 4. Deterministic Polling Loop
+  # 3. Deterministic Polling Loop
   ELAPSED=0
   echo -n "Experiments running. Vault is logging. Monitoring progress"
 
@@ -71,7 +58,7 @@ for EXP in "${EXPERIMENTS[@]}"; do
   done
   echo "" # Ensure the next terminal output starts on a fresh line
 
-  # 5. Evaluate and Log Host-Level Results
+  # 4. Evaluate and Log Host-Level Results
   if [ $ELAPSED -ge $MAX_RUNTIME ]; then
     echo "$(date) | SMOKE TEST TIMEOUT: $NAME | Exceeded 15-minute limit." >> /root/smoketest-runs.log
   else

@@ -1,4 +1,6 @@
 #cloud-config
+hostname: crs-log-vault
+fqdn: crs-log-vault.local
 package_update: true
 package_upgrade: false
 
@@ -22,6 +24,7 @@ packages:
   - lsb-release
   - htop
   - squid
+  - rclone
 
 write_files:
   # 1. Configure the telemetry logging service
@@ -103,6 +106,17 @@ write_files:
       PUSH_INTERVAL=60
       CF_CLIENT_ID=__CF_ID__
       CF_CLIENT_SECRET=__CF_SECRET__
+
+  # 4. Inject Rclone Configuration (Decoded dynamically on boot)
+  - path: /root/.config/rclone/rclone.conf
+    permissions: '0600'
+    encoding: b64
+    content: __RCLONE_CONF_B64__
+
+  # 5. Automate the Cloud Sync via Cron
+  - path: /etc/cron.d/rclone-sync
+    content: |
+      */15 * * * * root rclone copy /home/ubuntu/experiment-telemetry.log "__RCLONE_REMOTE_PATH__" >> /var/log/rclone.log 2>&1
 
 runcmd:
   # Enable QEMU Agent

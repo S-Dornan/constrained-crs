@@ -33,6 +33,8 @@ cp cloud-init-cleanroom.yaml /var/lib/vz/snippets/cloud-init-cleanroom.yaml
 # ==========================================
 # Secret Injection (Architecture Observability & Auth)
 # ==========================================
+
+# 1. Handle .env Secrets
 if [ -f ".env" ]; then
   echo "[*] Injecting secrets into staged snippets..."
   source .env
@@ -47,8 +49,19 @@ if [ -f ".env" ]; then
   # Cleanroom Fuzzer Secrets
   sed -i "s|__BASE_URL__|$CRSBENCH_LLM_UPSTREAM_BASE_URL|g" /var/lib/vz/snippets/cloud-init-cleanroom.yaml
   sed -i "s|__GEMINI_API_KEY__|$CRSBENCH_LLM_UPSTREAM_API_KEY|g" /var/lib/vz/snippets/cloud-init-cleanroom.yaml
+  sed -i "s|__RCLONE_REMOTE_PATH__|$RCLONE_REMOTE_PATH|g" /var/lib/vz/snippets/cloud-init-logging.yaml
 else
-  echo "[!] WARNING: .env file not found on host. Architecture will fail to authenticate."
+  echo "[!] WARNING: .env file not found. Architecture will fail to authenticate."
+fi
+
+# 2. Handle Rclone Configuration
+if [ -f "rclone.conf" ]; then
+  echo "[*] Injecting Rclone configuration..."
+  RCLONE_B64=$(base64 -w 0 rclone.conf)
+  sed -i "s|__RCLONE_CONF_B64__|$RCLONE_B64|g" /var/lib/vz/snippets/cloud-init-logging.yaml
+else
+  echo "[!] WARNING: rclone.conf not found. Log syncing will be disabled."
+  sed -i "s|__RCLONE_CONF_B64__||g" /var/lib/vz/snippets/cloud-init-logging.yaml
 fi
 
 echo "[*] Initializing CRS Cleanroom Architecture..."
@@ -71,8 +84,8 @@ else
     --memory 2048 \
     --cores 1 \
     --agent 1 \
-    --net0 virtio,bridge=vmbr0 \
-    --net1 virtio,bridge=vmbr1
+    --net0 virtio,bridge=vmbr0,rate=$TARGET_RATE \
+    --net1 virtio,bridge=vmbr1,rate=$TARGET_RATE
 
   qm set $VM1_ID \
     --ipconfig0 ip=dhcp \
@@ -126,7 +139,7 @@ qm set $VM2_ID \
   --cores $TARGET_CORES \
   --agent 1 \
   --net0 virtio,bridge=vmbr0,rate=$TARGET_RATE \
-  --net1 virtio,bridge=vmbr1
+  --net1 virtio,bridge=vmbr1,rate=$TARGET_RATE
 
 qm set $VM2_ID \
   --ipconfig0 ip=dhcp \
@@ -142,4 +155,32 @@ qm set $VM2_ID --args "-chardev socket,id=serial_log,host=127.0.0.1,port=9001 -d
 qm start $VM2_ID
 echo "crs-cleanroom is booting!"
 
-echo "[+] Architecture provisioned successfully."
+# ==========================================
+# Strict Dependency Lock: Await Cleanroom
+# ==========================================
+echo "Waiting for Cleanroom QEMU Guest Agent to initialize..."
+while ! qm agent $VM2_ID ping >/dev/null 2>&1; do
+  sleep 5
+done
+
+echo -n "Polling Cleanroom Cloud-Init status (This installs Docker and clones repos)"
+while ! qm guest exec $VM2_ID -- bash -c "cloud-init status" 2>/dev/null | grep -q "done"; do
+  echo -n "."
+  sleep 10
+done
+echo " [READY]"
+
+# ==========================================
+# Final State Enforcement: Apply Kernel Parameters
+# ==========================================
+echo "Rebooting Cleanroom to apply GRUB cgroup parameters..."
+qm reboot $VM2_ID
+sleep 15
+
+echo "Waiting for Cleanroom to return online..."
+while ! qm agent $VM2_ID ping >/dev/null 2>&1; do
+  sleep 5
+done
+
+echo "[+] Cleanroom is fully online with strict Docker isolation."
+echo "[+] Architecture provisioning complete."

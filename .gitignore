@@ -268,3 +268,5 @@ Module.symvers
 Mkfile.old
 dkms.conf
 
+# Config files
+*.conf
