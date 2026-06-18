@@ -4,6 +4,22 @@
 VM1_ID=301
 VM2_ID=302
 
+# ==========================================
+# Graceful Interrupt Handler
+# ==========================================
+cleanup() {
+  echo -e "\n[!] KEYBOARD INTERRUPT DETECTED. Halting Orchestrator..."
+  echo "[*] Tearing down ephemeral Cleanroom ($VM2_ID)..."
+  qm stop $VM2_ID >/dev/null 2>&1 || true
+  qm destroy $VM2_ID >/dev/null 2>&1 || true
+  echo "[+] Cleanroom completely destroyed."
+  echo "[+] Log Vault ($VM1_ID) left running to ensure final cloud sync."
+  exit 1
+}
+
+# Trap Ctrl+C (SIGINT) and kill commands (SIGTERM)
+trap cleanup SIGINT SIGTERM
+
 # Define the runs based on methodology constraints: 
 # "Name : Cores : RAM(MB) : NetRate(MB/s) : ConfigPath"
 EXPERIMENTS=(
@@ -29,6 +45,9 @@ for EXP in "${EXPERIMENTS[@]}"; do
 
   # 1. Build the fresh architecture using the parameterized script
   ./vm-config.sh "$CORES" "$RAM" "$RATE"
+
+  # Prepare the unique directory on the Log Vault for this run
+  qm guest exec $VM1_ID -- sudo -u ubuntu mkdir -p /home/ubuntu/vault-results/$NAME
 
   # 2. Inject the Fuzzer Commands via detached tmux sessions
   echo "Triggering Valkey Queue..."
@@ -58,6 +77,19 @@ for EXP in "${EXPERIMENTS[@]}"; do
   done
   echo "" # Ensure the next terminal output starts on a fresh line
 
+  # ==========================================
+  # NEW: Secure Data Exfiltration & Log Slicing
+  # ==========================================
+  echo "[*] Polling loop finished. Initiating data rescue protocol..."
+
+  # Push the structured trial framework artifacts over the isolated backplane using the injected SSH key
+  echo "Exfiltrating structured framework artifacts to Log Vault..."
+  qm guest exec $VM2_ID -- sudo -u ubuntu bash -c "rsync -avz -e 'ssh -o StrictHostKeyChecking=no' /home/ubuntu/CRSBench/results/ ubuntu@172.16.255.20:/home/ubuntu/vault-results/$NAME/"
+
+  # Archive the serial telemetry into the folder, then truncate the original file so it's clean for the next run
+  echo "Archiving serial telemetry for $NAME..."
+  qm guest exec $VM1_ID -- bash -c "cp /home/ubuntu/experiment-telemetry.log /home/ubuntu/vault-results/$NAME/serial-console.log && > /home/ubuntu/experiment-telemetry.log"
+
   # 4. Evaluate and Log Host-Level Results
   if [ $ELAPSED -ge $MAX_RUNTIME ]; then
     echo "$(date) | SMOKE TEST TIMEOUT: $NAME | Exceeded 15-minute limit." >> /root/smoketest-runs.log
@@ -67,4 +99,15 @@ for EXP in "${EXPERIMENTS[@]}"; do
   
 done
 
-echo "All smoke tests have concluded. Architecture pipeline verified."
+# ==========================================
+# Final Architecture Teardown
+# ==========================================
+echo "======================================================="
+echo "All scheduled experiments have concluded."
+echo "Executing final architecture cleanup..."
+
+qm stop $VM2_ID >/dev/null 2>&1 || true
+qm destroy $VM2_ID >/dev/null 2>&1 || true
+
+echo "[+] Ephemeral Cleanroom ($VM2_ID) destroyed."
+echo "[+] Pipeline finished successfully. Log Vault is processing final syncs."
