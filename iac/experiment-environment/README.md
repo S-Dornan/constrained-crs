@@ -2,9 +2,13 @@
 
 Experimental Infrastructure as code scripts to run the experiments go here
 
-Current template is customized and untested as at the 11th of June 2026
+Current template is customized and untested as at the 18th of June 2026
 
 ### The Execution Sequence
+
+**0. Set up the dependencies**
+1. Run ```rclone config``` on your personal laptop. Take the resulting ```rclone.conf``` file and drop it in the same folder as the ```vm-config.sh``` file
+
 
 **1. Build the Base Template**
 Run your `setup-template.sh` script on the Proxmox host. This will download the Noble Numbat image and bind it to VM 9001.
@@ -15,7 +19,7 @@ chmod +x setup-template.sh
 ```
 
 **2. Compile and Provision**
-Ensure your `.env` file (with your API key) and your `cloud-init.yaml` are sitting in the same directory as your `vm-config.sh` script. Run the compiler and watch Proxmox spin up the Cleanroom and the Log Vault.
+Ensure your `.env` file (with your API key), your completed `rclone.conf` file, and your `cloud-init.yaml` are sitting in the same directory as your `vm-config.sh` script. Run the compiler and watch Proxmox spin up the Cleanroom and the Log Vault.
 
 ```bash
 chmod +x vm-config.sh
