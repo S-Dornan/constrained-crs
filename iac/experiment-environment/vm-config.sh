@@ -83,8 +83,8 @@ else
     --memory 2048 \
     --cores 1 \
     --agent 1 \
-    --net0 virtio,bridge=vmbr0 \
-    --net1 virtio,bridge=vmbr1
+    --net0 virtio,bridge=vmbr,rate=$TARGET_RATE \
+    --net1 virtio,bridge=vmbr1,rate=$TARGET_RATE
 
   qm set $VM1_ID \
     --ipconfig0 ip=dhcp \
@@ -137,12 +137,10 @@ qm set $VM2_ID \
   --memory $TARGET_RAM \
   --cores $TARGET_CORES \
   --agent 1 \
-  --net0 virtio,bridge=vmbr0,rate=$TARGET_RATE \
-  --net1 virtio,bridge=vmbr1,rate=$TARGET_RATE
+  --net0 virtio,bridge=vmbr1,rate=$TARGET_RATE
 
 qm set $VM2_ID \
-  --ipconfig0 ip=dhcp \
-  --ipconfig1 ip=172.16.255.21/24 \
+  --ipconfig0 ip=172.16.255.21/24 \
   --cicustom "user=$VM2_SNIPPET_PATH" \
   --tags "crs,experiment,fuzzer"
 
