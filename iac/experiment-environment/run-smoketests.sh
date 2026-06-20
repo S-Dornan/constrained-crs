@@ -23,10 +23,10 @@ trap cleanup SIGINT SIGTERM
 # Define the runs based on methodology constraints: 
 # "Name : Cores : RAM(MB) : NetRate(MB/s) : ConfigPath"
 EXPERIMENTS=(
-  "smoke_1_baseline:8:32768:20:experiment-configs/smoke-testing/first-run.yaml"
-  "smoke_2_stepdown:6:24576:15:experiment-configs/smoke-testing/first-run.yaml"
-  "smoke_3_stepdown:4:16384:10:experiment-configs/smoke-testing/first-run.yaml"
-  "smoke_4_starved:2:8192:5:experiment-configs/smoke-testing/first-run.yaml"
+  "smoke_1_baseline:8:32768:20:experiment-configs/QA"
+  "smoke_2_stepdown:6:24576:15:experiment-configs/QA"
+  "smoke_3_stepdown:4:16384:10:experiment-configs/QA"
+  "smoke_4_starved:2:8192:5:experiment-configs/QA"
 )
 
 # 15 Minutes = 900 seconds (Approx 1 hour total runtime for 4 experiments)
@@ -36,7 +36,7 @@ POLL_INTERVAL=60
 echo "Initializing Smoke Test Orchestrator..."
 
 for EXP in "${EXPERIMENTS[@]}"; do
-  IFS=':' read -r NAME CORES RAM RATE CONFIG <<< "$EXP"
+  IFS=':' read -r NAME CORES RAM RATE CONFIG_DIR <<< "$EXP"
   
   echo "======================================================="
   echo "STARTING SMOKE TEST: $NAME"
@@ -55,10 +55,39 @@ for EXP in "${EXPERIMENTS[@]}"; do
   
   sleep 30
   
-  echo "Triggering CRSBench Worker and Runner..."
-  qm guest exec $VM2_ID -- sudo -u ubuntu tmux new-session -d -s worker "cd /home/ubuntu/CRSBench && /home/ubuntu/.local/bin/uv run crsbench worker --experiment-config $CONFIG 2>&1 | sudo tee /dev/ttyS1"
-  qm guest exec $VM2_ID -- sudo -u ubuntu tmux new-session -d -s runner "cd /home/ubuntu/CRSBench && /home/ubuntu/.local/bin/uv run crsbench run --experiment-config $CONFIG 2>&1 | sudo tee /dev/ttyS1"
+  # ====================
+  # INJECT LOCAL CONFIGS
+  # ====================
+  echo "[*] Injecting custom offline configurations directly from Hypervisor..."
+  
+  # 1. Create the destination folder inside the Cleanroom
+  qm guest exec $VM2_ID -- sudo -u ubuntu mkdir -p /home/ubuntu/CRSBench/experiment-configs/QA
+  
+  # 2. Read the local YAML on the Proxmox host, Base64 encode it, and inject it into the guest
+  # Note: The path assumes run-smoketests.sh is running from inside iac/experiment-environment/
+  
+  B64_FINDING=$(base64 -w 0 ../../experiment-configs/QA/smoke-finding.yaml)
+  qm guest exec $VM2_ID -- sudo -u ubuntu bash -c "echo '$B64_FINDING' | base64 -d > /home/ubuntu/CRSBench/experiment-configs/QA/smoke-finding.yaml"
+  
+  B64_FIXING=$(base64 -w 0 ../../experiment-configs/QA/smoke-fixing.yaml)
+  qm guest exec $VM2_ID -- sudo -u ubuntu bash -c "echo '$B64_FIXING' | base64 -d > /home/ubuntu/CRSBench/experiment-configs/QA/smoke-fixing.yaml"
+  
+  echo "[+] Configurations successfully injected."
 
+  # ==========================================
+  # EXECUTION: The Chained Pipeline
+  # ==========================================
+  echo "Triggering CRSBench Worker and Runner..."
+  
+  # Start the background worker
+  qm guest exec $VM2_ID -- sudo -u ubuntu tmux new-session -d -s worker "cd /home/ubuntu/CRSBench && /home/ubuntu/.local/bin/uv run crsbench worker --experiment-config $CONFIG_DIR/smoke-finding.yaml 2>&1 | sudo tee /dev/ttyS1"
+  
+  # Chain the runner phases (Finding -> Fixing)
+  qm guest exec $VM2_ID -- sudo -u ubuntu tmux new-session -d -s runner "cd /home/ubuntu/CRSBench && \
+    echo '[*] PHASE 1: BUG FINDING' | sudo tee -a /dev/ttyS1 && \
+    /home/ubuntu/.local/bin/uv run crsbench run --experiment-config $CONFIG_DIR/smoke-finding.yaml 2>&1 | sudo tee -a /dev/ttyS1 && \
+    echo '[*] PHASE 2: BUG FIXING' | sudo tee -a /dev/ttyS1 && \
+    /home/ubuntu/.local/bin/uv run crsbench run --experiment-config $CONFIG_DIR/smoke-fixing.yaml 2>&1 | sudo tee -a /dev/ttyS1"
   # 3. Deterministic Polling Loop
   ELAPSED=0
   echo -n "Experiments running. Vault is logging. Monitoring progress"
@@ -78,7 +107,7 @@ for EXP in "${EXPERIMENTS[@]}"; do
   echo "" # Ensure the next terminal output starts on a fresh line
 
   # ==========================================
-  # NEW: Secure Data Exfiltration & Log Slicing
+  # Data Exfiltration & Log Slicing
   # ==========================================
   echo "[*] Polling loop finished. Initiating data rescue protocol..."
 
