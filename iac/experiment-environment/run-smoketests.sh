@@ -110,11 +110,10 @@ for EXP in "${EXPERIMENTS[@]}"; do
   # Data Exfiltration & Log Slicing
   # ==========================================
   echo "[*] Polling loop finished. Initiating data rescue protocol..."
-  
   set -x # Turn on debugging
+
   # Limit rsync to 2000 KB/s to prevent network interrupt panics on the Log Vault
   qm guest exec $VM2_ID -- sudo -u ubuntu bash -c "cd /home/ubuntu/CRSBench/results && rsync -avz --bwlimit=2000 -e 'ssh -i /home/ubuntu/.ssh/id_ed25519 -o StrictHostKeyChecking=no' . ubuntu@172.16.255.20:/home/ubuntu/vault-results/$NAME/"
-  set +x # Turn off debugging
 
   # Wait dynamically for the SSH/Rsync TCP connection to drop from ESTABLISHED
   echo -n "Waiting for network buffer flush and TCP connection closure"
