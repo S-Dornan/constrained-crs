@@ -27,6 +27,7 @@ packages:
   - python3
   - python3-pip
   - tmux
+  - rsync
 
 write_files:
   - path: /etc/default/grub.d/99-custom-timeout.cfg
@@ -58,6 +59,13 @@ write_files:
       Environment="HTTPS_PROXY=http://172.16.255.20:3128"
       Environment="NO_PROXY=localhost,127.0.0.1,172.16.255.21,172.16.255.20"
 
+  # Inject the Private SSH Key for Data Exfiltration over the backplane
+  - path: /home/ubuntu/.ssh/id_ed25519
+    permissions: '0600'
+    # owner: ubuntu:ubuntu # Temporarily removing this to cross-check if that fixes the VM
+    encoding: b64
+    content: __SYNC_PRIV_KEY_B64__
+
 runcmd:
   # Wait for the Log Vault (VM 301) Squid proxy to come online before proceeding
   - "while ! bash -c 'echo > /dev/tcp/172.16.255.20/3128' 2>/dev/null; do sleep 5; done"
@@ -80,7 +88,7 @@ runcmd:
   # Create the docker group
   - groupadd docker
   
-  # CRITICAL: Manually add the user to the group and refresh
+  # Manually add the user to the group and refresh
   - usermod -aG docker ubuntu
   
   # Reload systemd to catch the Docker proxy drop-in, then enable Docker
@@ -89,6 +97,9 @@ runcmd:
   - systemctl restart docker
   - "while ! docker info >/dev/null 2>&1; do sleep 2; done"
 
+  # Reclaim the home directory from root
+  - chown -R ubuntu:ubuntu /home/ubuntu
+  
   # Install UV and Just (Traffic goes through the proxy defined in /etc/environment)
   - sudo -u ubuntu bash -c 'export http_proxy="http://172.16.255.20:3128" https_proxy="http://172.16.255.20:3128"; curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="/home/ubuntu/.local/bin" sh'
   - sudo -u ubuntu bash -c 'export http_proxy="http://172.16.255.20:3128" https_proxy="http://172.16.255.20:3128"; curl --proto "=https" --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /home/ubuntu/.local/bin'

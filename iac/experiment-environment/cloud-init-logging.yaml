@@ -9,6 +9,8 @@ users:
     groups: sudo, docker
     shell: /bin/bash
     sudo: ALL=(ALL) NOPASSWD:ALL
+    ssh_authorized_keys:
+      - __SYNC_PUB_KEY__
 
 chpasswd:
   list: |
@@ -113,10 +115,9 @@ write_files:
     encoding: b64
     content: __RCLONE_CONF_B64__
 
-  # 5. Automate the Cloud Sync via Cron
   - path: /etc/cron.d/rclone-sync
     content: |
-      */15 * * * * root rclone copy /home/ubuntu/experiment-telemetry.log "__RCLONE_REMOTE_PATH__" >> /var/log/rclone.log 2>&1
+      */15 * * * * root rclone copy /home/ubuntu/vault-results/ "__RCLONE_REMOTE_PATH__" >> /var/log/rclone.log 2>&1
 
 runcmd:
   # Enable QEMU Agent
@@ -141,8 +142,10 @@ runcmd:
   - systemctl enable --now serial-logger
   - systemctl restart squid
 
+  # Grant ownership to the full Ubuntu folder
+  - chown -R ubuntu:ubuntu /home/ubuntu
+  
   # Spin up the Observability Stack
-  - chown -R ubuntu:ubuntu /home/ubuntu/monitors
   - cd /home/ubuntu/monitors && docker compose pull && docker compose up -d --remove-orphans
 
 final_message: "Log Vault provisioned securely with Docker and Squid after $UPTIME seconds."

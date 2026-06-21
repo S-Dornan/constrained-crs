@@ -1,0 +1,33 @@
+experiment:
+  name: smoke-phase2-fixing
+  task: bugfixing
+  mode: delta
+  benchmark_suite: smoke/sanity
+
+runtime:
+  trials: 1
+  max_total_time: 1800     # 30 minutes total ceiling
+  build_timeout: 900
+  run_timeout: 600         # 10 minutes for active fuzzing
+  verify_timeout: 300
+  redis_host: localhost:6379
+  inputs:
+    pov:
+      max_variants_per_cpv: 1
+      # CRITICAL: Points to the exact output folder from the smoke-finding phase
+      from_experiment_by_crs:
+        atlantis-multilang-given_fuzzer: ./results/experiment-data/smoke-phase1-finding/smoke-phase1-finding/atlantis-multilang-given_fuzzer
+  litellm:
+    skip: true
+
+storage:
+  experiment_filestore: ./results/experiment-data-fixing
+  report_filestore: ./results/report-data-fixing
+
+worker:
+  jobs: 1
+  cores_per_job: 2
+
+crs_compose:
+  atlantis-multilang-given_fuzzer:
+    num_cores: 2

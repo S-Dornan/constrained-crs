@@ -64,6 +64,21 @@ else
   sed -i "s|__RCLONE_CONF_B64__||g" /var/lib/vz/snippets/cloud-init-logging.yaml
 fi
 
+# ==========================================
+# 3. Handle Backplane SSH Keys (Data Exfiltration)
+# ==========================================
+echo "[*] Handling Backplane SSH Keys..."
+if [ ! -f "crs-sync-key" ]; then
+  echo "Generating new Ed25519 SSH keypair for backplane sync..."
+  ssh-keygen -t ed25519 -f crs-sync-key -N "" -q
+fi
+
+SYNC_PUB=$(cat crs-sync-key.pub)
+SYNC_PRIV_B64=$(base64 -w 0 crs-sync-key)
+
+sed -i "s|__SYNC_PUB_KEY__|$SYNC_PUB|g" /var/lib/vz/snippets/cloud-init-logging.yaml
+sed -i "s|__SYNC_PRIV_KEY_B64__|$SYNC_PRIV_B64|g" /var/lib/vz/snippets/cloud-init-cleanroom.yaml
+
 echo "[*] Initializing CRS Cleanroom Architecture..."
 
 # ==========================================
@@ -81,8 +96,8 @@ else
   
   echo "Applying static, lightweight footprint to Log Vault..."
   qm set $VM1_ID \
-    --memory 2048 \
-    --cores 1 \
+    --memory 4096 \
+    --cores 2 \
     --agent 1 \
     --net0 virtio,bridge=vmbr0,rate=$TARGET_RATE \
     --net1 virtio,bridge=vmbr1,rate=$TARGET_RATE
