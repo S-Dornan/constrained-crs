@@ -117,7 +117,7 @@ write_files:
 
   - path: /etc/cron.d/rclone-sync
     content: |
-      */15 * * * * root rclone copy /home/ubuntu/vault-results/ "__RCLONE_REMOTE_PATH__" >> /var/log/rclone.log 2>&1
+      */15 * * * * root rclone sync /home/ubuntu/vault-results/ "__RCLONE_REMOTE_PATH__" --bwlimit 2M --update --use-server-modtime >> /var/log/rclone.log 2>&1
 
 runcmd:
   # Enable QEMU Agent
