@@ -6,10 +6,10 @@ experiment:
 
 runtime:
   trials: 1
-  max_total_time: 900     # 15 minutes total ceiling
-  build_timeout: 420       
-  run_timeout: 270         # 4.5 minutes for active fuzzing
-  verify_timeout: 120
+  max_total_time: 600     # 10 minutes total ceiling
+  build_timeout: 300      # 5 minutes 
+  run_timeout: 180         # 4.5 minutes for active fuzzing
+  verify_timeout: 120      # 2 minutes 
   redis_host: localhost:6379
   inputs:
     pov:
