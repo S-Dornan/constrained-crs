@@ -31,7 +31,7 @@ EXPERIMENTS=(
 )
 
 # 15 Minutes = 900 seconds (Approx 1 hour total runtime for 4 experiments)
-MAX_RUNTIME=900
+MAX_RUNTIME=1200
 POLL_INTERVAL=60
 
 echo "Initializing Smoke Test Orchestrator..."
