@@ -57,6 +57,30 @@ for EXP in "${EXPERIMENTS[@]}"; do
   # Build the fresh architecture using the parameterized script
   ./vm-config.sh "$CORES" "$RAM" "$RATE"
 
+  # ====================
+  # NEW: Wait for Guest OS (With Circuit Breaker)
+  # ====================
+  echo -n "[*] Waiting for QEMU Guest Agent to boot"
+  MAX_RETRIES=90 # 3 minutes total wait time
+  RETRY_COUNT=0
+
+  until qm agent "$VM2_ID" ping >/dev/null 2>&1; do
+    if [ "$RETRY_COUNT" -ge "$MAX_RETRIES" ]; then
+      echo " [TIMEOUT]"
+      echo "Error: Guest Agent on VM $VM2_ID failed to respond within 180 seconds."
+      exit 1 # Or trigger your cleanup() function here if you want it to teardown and continue
+    fi
+    
+    echo -n "."
+    sleep 2
+    RETRY_COUNT=$((RETRY_COUNT + 1))
+  done
+
+  echo " [ONLINE]"
+  
+  # Give Cloud-Init an extra 15 seconds to finish mounting directories after the agent boots
+  sleep 15
+
   # Prepare the unique directory on the Log Vault for this run
   qm guest exec $VM1_ID -- sudo -u ubuntu mkdir -p /home/ubuntu/vault-results/$NAME
 
@@ -123,7 +147,7 @@ for EXP in "${EXPERIMENTS[@]}"; do
   
   set -x # Turn on debugging
   # Limit rsync to 2000 KB/s to prevent network interrupt panics on the Log Vault
-  qm guest exec $VM2_ID -- sudo -u ubuntu bash -c "cd /home/ubuntu/CRSBench/results && rsync -avz --bwlimit=2000 -e 'ssh -i /home/ubuntu/.ssh/id_ed25519 -o StrictHostKeyChecking=no' . ubuntu@172.16.255.20:/home/ubuntu/vault-results/$NAME/"
+  qm guest exec $VM2_ID -- sudo -u ubuntu bash -c "if [ -d /home/ubuntu/CRSBench/results ]; then cd /home/ubuntu/CRSBench/results && rsync -avz --bwlimit=2000 -e 'ssh -i /home/ubuntu/.ssh/id_ed25519 -o StrictHostKeyChecking=no' . ubuntu@172.16.255.20:/home/ubuntu/vault-results/$NAME/; else echo 'WARNING: Results directory not found, skipping exfiltration.'; fi"
   set +x # Turn off debugging
 
   # Wait dynamically for the SSH/Rsync TCP connection to drop from ESTABLISHED
@@ -140,7 +164,7 @@ for EXP in "${EXPERIMENTS[@]}"; do
 
   # 4. Evaluate and Log Host-Level Results
   if [ $ELAPSED -ge $MAX_RUNTIME ]; then
-    echo "$(date) | SMOKE TEST TIMEOUT: $NAME | Exceeded 15-minute limit." >> /root/smoketest-runs.log
+    echo "$(date) | SMOKE TEST TIMEOUT: $NAME | Exceeded 20-minute limit." >> /root/smoketest-runs.log
   else
     echo "$(date) | SMOKE TEST COMPLETED: $NAME | Finished in $ELAPSED seconds." >> /root/smoketest-runs.log
   fi
