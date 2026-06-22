@@ -7,7 +7,7 @@ experiment:
 
 runtime:
   trials: 1
-  max_total_time: 25200    # 7 hours total ceiling for this phase
+  max_total_time: 30600    # 8.5 hours total ceiling for this phase
   build_timeout: 3600      # 1 hour allowed for build
   run_timeout: 21600       # Exactly 6 hours (methodology constraint)
   verify_timeout: 3600

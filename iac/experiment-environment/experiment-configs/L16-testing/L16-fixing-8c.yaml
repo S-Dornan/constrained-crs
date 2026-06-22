@@ -1,0 +1,33 @@
+experiment:
+  name: L16-phase2-fixing
+  task: bugfixing
+  mode: delta
+  benchmark_suite: smoke/sanity
+
+runtime:
+  trials: 1
+  max_total_time: 30600    # 8.5 hours total ceiling for this phase
+  build_timeout: 3600      # 1 hour allowed for build
+  run_timeout: 21600       # Exactly 6 hours (methodology constraint)
+  verify_timeout: 3600
+  redis_host: localhost:6379
+  inputs:
+    pov:
+      max_variants_per_cpv: 1
+      # Points to the exact output folder from Phase 1
+      from_experiment_by_crs:
+        atlantis-multilang-given_fuzzer: ./results/experiment-data/L16-phase1-finding/L16-phase1-finding/atlantis-multilang-given_fuzzer
+  litellm:
+    skip: true
+
+storage:
+  experiment_filestore: ./results/experiment-data-fixing
+  report_filestore: ./results/report-data-fixing
+
+worker:
+  jobs: 3
+  cores_per_job: 2
+
+crs_compose:
+  atlantis-multilang-given_fuzzer:
+    num_cores: 2

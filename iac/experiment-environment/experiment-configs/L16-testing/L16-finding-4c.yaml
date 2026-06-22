@@ -1,0 +1,32 @@
+experiment:
+  name: L16-phase1-finding
+  task: bugfinding
+  mode: full
+  benchmark_suite: smoke/sanity
+  sanitizers: [address]
+
+runtime:
+  trials: 1
+  max_total_time: 30600    # 8.5 hours total ceiling for this phase
+  build_timeout: 3600      # 1 hour allowed for build
+  run_timeout: 21600       # Exactly 6 hours (methodology constraint)
+  verify_timeout: 3600
+  redis_host: localhost:6379
+  litellm:
+    skip: true
+
+storage:
+  experiment_filestore: ./results/experiment-data
+  report_filestore: ./results/report-data
+
+crs_compose:
+  atlantis-multilang-given_fuzzer:
+    num_cores: 2
+
+worker:
+  jobs: 1
+  cores_per_job: 2
+
+evaluator:
+  jobs: 1
+  cores_per_job: 2

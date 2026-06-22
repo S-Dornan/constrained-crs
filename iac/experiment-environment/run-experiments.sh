@@ -25,31 +25,31 @@ trap cleanup SIGINT SIGTERM
 # "Name : Cores : RAM(MB) : NetRate(MB/s) : ConfigPath"
 EXPERIMENTS=(
   # Peak CPU Group
-  "L16_01_baseline:8:32768:20:experiment-configs/L16-testing:finding.yaml:fixing.yaml"
-  "L16_02_stepdown:8:24576:15:experiment-configs/L16-testing:finding.yaml:fixing.yaml"
-  "L16_03_stepdown:8:16384:10:experiment-configs/L16-testing:finding.yaml:fixing.yaml"
-  "L16_04_starved:8:8192:5:experiment-configs/L16-testing:finding.yaml:fixing.yaml"
+  "L16_01_baseline:8:32768:20:experiment-configs/L16-testing:L16-finding-8c.yaml:L16-fixing-8c.yaml"
+  "L16_02_stepdown:8:24576:15:experiment-configs/L16-testing:L16-finding-8c.yaml:L16-fixing-8c.yaml"
+  "L16_03_stepdown:8:16384:10:experiment-configs/L16-testing:L16-finding-8c.yaml:L16-fixing-8c.yaml"
+  "L16_04_starved:8:8192:5:experiment-configs/L16-testing:L16-finding-8c.yaml:L16-fixing-8c.yaml"
 
   # High-Mid CPU Group
-  "L16_05_stepdown:6:24576:20:experiment-configs/L16-testing:finding.yaml:fixing.yaml"
-  "L16_06_baseline:6:32768:15:experiment-configs/L16-testing:finding.yaml:fixing.yaml"
-  "L16_07_starved:6:8192:10:experiment-configs/L16-testing:finding.yaml:fixing.yaml"
-  "L16_08_stepdown:6:16384:5:experiment-configs/L16-testing:finding.yaml:fixing.yaml"
+  "L16_05_stepdown:6:24576:20:experiment-configs/L16-testing:L16-finding-6c.yaml:L16-fixing-6c.yaml"
+  "L16_06_baseline:6:32768:15:experiment-configs/L16-testing:L16-finding-6c.yaml:L16-fixing-6c.yaml"
+  "L16_07_starved:6:8192:10:experiment-configs/L16-testing:L16-finding-6c.yaml:L16-fixing-6c.yaml"
+  "L16_08_stepdown:6:16384:5:experiment-configs/L16-testing:L16-finding-6c.yaml:L16-fixing-6c.yaml"
 
   # Low-Mid CPU Group
-  "L16_09_stepdown:4:16384:20:experiment-configs/L16-testing:finding.yaml:fixing.yaml"
-  "L16_10_starved:4:8192:15:experiment-configs/L16-testing:finding.yaml:fixing.yaml"
-  "L16_11_baseline:4:32768:10:experiment-configs/L16-testing:finding.yaml:fixing.yaml"
-  "L16_12_stepdown:4:24576:5:experiment-configs/L16-testing:finding.yaml:fixing.yaml"
+  "L16_09_stepdown:4:16384:20:experiment-configs/L16-testing:L16-finding-4c.yaml:L16-fixing-4c.yaml"
+  "L16_10_starved:4:8192:15:experiment-configs/L16-testing:L16-finding-4c.yaml:L16-fixing-4c.yaml"
+  "L16_11_baseline:4:32768:10:experiment-configs/L16-testing:L16-finding-4c.yaml:L16-fixing-4c.yaml"
+  "L16_12_stepdown:4:24576:5:experiment-configs/L16-testing:L16-finding-4c.yaml:L16-fixing-4c.yaml"
 
   # Starved CPU Group
-  "L16_13_starved:2:8192:20:experiment-configs/L16-testing:finding.yaml:fixing.yaml"
-  "L16_14_stepdown:2:16384:15:experiment-configs/L16-testing:finding.yaml:fixing.yaml"
-  "L16_15_stepdown:2:24576:10:experiment-configs/L16-testing:finding.yaml:fixing.yaml"
-  "L16_16_baseline:2:32768:5:experiment-configs/L16-testing:finding.yaml:fixing.yaml"
+  "L16_13_starved:2:8192:20:experiment-configs/L16-testing:L16-finding-2c.yaml:L16-fixing-2c.yaml"
+  "L16_14_stepdown:2:16384:15:experiment-configs/L16-testing:L16-finding-2c.yaml:L16-fixing-2c.yaml"
+  "L16_15_stepdown:2:24576:10:experiment-configs/L16-testing:L16-finding-2c.yaml:L16-fixing-2c.yaml"
+  "L16_16_baseline:2:32768:5:experiment-configs/L16-testing:L16-finding-2c.yaml:L16-fixing-2c.yaml"
 )
 
-# 15 Minutes = 900 seconds (Approx 1 hour total runtime for 4 experiments)
+# 24 Hours = 86400 seconds (Approx 16 days total runtime for 16 experiments)
 MAX_RUNTIME=86400
 POLL_INTERVAL=60
 
