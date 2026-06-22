@@ -24,10 +24,10 @@ trap cleanup SIGINT SIGTERM
 # Define the runs based on methodology constraints: 
 # "Name : Cores : RAM(MB) : NetRate(MB/s) : ConfigPath"
 EXPERIMENTS=(
-  "smoke_1_baseline:8:32768:20:experiment-configs/L16-QA:smoke-finding.yaml:smoke-fixing.yaml"
-  "smoke_2_stepdown:6:24576:15:experiment-configs/L16-QA:smoke-finding.yaml:smoke-fixing.yaml"
-  "smoke_3_stepdown:4:16384:10:experiment-configs/L16-QA:smoke-finding.yaml:smoke-fixing.yaml"
-  "smoke_4_starved:2:8192:5:experiment-configs/L16-QA:smoke-finding.yaml:smoke-fixing.yaml"
+  "l16-smoke_1_baseline:8:32768:20:experiment-configs/L16-QA:smoke-finding.yaml:smoke-fixing.yaml"
+  "l16-smoke_2_stepdown:6:24576:15:experiment-configs/L16-QA:smoke-finding.yaml:smoke-fixing.yaml"
+  "l16-smoke_3_stepdown:4:16384:10:experiment-configs/L16-QA:smoke-finding.yaml:smoke-fixing.yaml"
+  "l16-smoke_4_starved:2:8192:5:experiment-configs/L16-QA:smoke-finding.yaml:smoke-fixing.yaml"
 )
 
 # 15 Minutes = 900 seconds (Approx 1 hour total runtime for 4 experiments)
