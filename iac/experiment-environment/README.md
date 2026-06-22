@@ -55,4 +55,39 @@ And when you've seen enough of that you can exit the viewer with `Ctrl-C`, the s
 
 It's also worth noting that the experiment includes push monitors which are powered by Uptime Kuma; make sure those monitors are out of maintenance mode of you'd like to receive alerts on the length of time these are taking.
 
-Once those smoke tests have run and passed, you can kill the task with `pkill -f run-smoketests.sh`
+Once those smoke tests have run and passed, you can kill the task with 
+
+```bash
+pkill -f run-smoketests.sh
+```
+
+When the time comes to run the experiments, you can run them with the `run-experiments.sh` file. This operates similarly to the smoke tests you saw earlier.
+
+```bash
+chmod +x run-experiments.sh
+nohup ./run-experiments.sh > experiment-execution.log 2>&1 &
+```
+
+You can view the output of the smoke tests with the folowing command:
+```bash
+tail -f experiment-execution.log
+```
+
+And when you've seen enough of that you can exit the viewer with `Ctrl-C`, the smoke tests will continue to run for the next hour.
+
+In the event you need to interrupt the experiments, you can interrupt them with
+
+```bash
+pkill -f run-experiments.sh
+```
+
+This should be expected to have a material impact on the system however, and it's strongly recommended that after you run this command you leave the system in its slightly degraded state for at least 15 minutes so that it can settle and any available data in the log vault can be synced to the cloud.
+
+When you're finished with the infrastructure, you can delete it all with 
+
+```bash
+chmod +x teardown.sh
+./teardown.sh
+```
+
+**Keep in mind that this will destroy all data on all associated machines.**
