@@ -3,6 +3,7 @@
 
 VM1_ID=301
 VM2_ID=302
+SCRIPT_DIR=$(dirname "$0")
 
 # ==========================================
 # Graceful Interrupt Handler
@@ -36,8 +37,11 @@ POLL_INTERVAL=60
 echo "Initializing Smoke Test Orchestrator..."
 
 for EXP in "${EXPERIMENTS[@]}"; do
-  IFS=':' read -r NAME CORES RAM RATE CONFIG <<< "$EXP"
+  IFS=':' read -r NAME CORES RAM RATE REL_PATH <<< "$EXP"
   
+  # Define the absolute guest path right here
+  CONFIG="/home/ubuntu/$REL_PATH"
+
   echo "======================================================="
   echo "STARTING SMOKE TEST: $NAME"
   echo "Constraints -> Cores: $CORES | RAM: $RAM | Net: $RATE"
@@ -55,6 +59,23 @@ for EXP in "${EXPERIMENTS[@]}"; do
   
   sleep 30
   
+  # ====================
+  # THE NEW VARIABLE: Absolute Path Injection
+  # ====================
+  echo "[*] Injecting offline configuration into absolute safe-path..."
+  
+  # Parse the directory out of the config path so we can create it
+  CONFIG_DIR=$(dirname "$CONFIG")
+  
+  # 1. Create the destination folder in the user's home directory (Outside Git)
+  qm guest exec $VM2_ID -- sudo -u ubuntu mkdir -p "$CONFIG_DIR"
+  
+# 2. Base64 encode the local file and decode it directly into the new absolute path
+  B64_CONFIG=$(base64 -w 0 "$SCRIPT_DIR/$REL_PATH")
+  qm guest exec $VM2_ID -- sudo -u ubuntu bash -c "echo '$B64_CONFIG' | base64 -d > $CONFIG"
+  
+  echo "[+] Configuration successfully injected to $CONFIG"
+
   echo "Triggering CRSBench Worker and Runner..."
   qm guest exec $VM2_ID -- sudo -u ubuntu tmux new-session -d -s worker "cd /home/ubuntu/CRSBench && /home/ubuntu/.local/bin/uv run crsbench worker --experiment-config $CONFIG 2>&1 | sudo tee /dev/ttyS1"
   qm guest exec $VM2_ID -- sudo -u ubuntu tmux new-session -d -s runner "cd /home/ubuntu/CRSBench && /home/ubuntu/.local/bin/uv run crsbench run --experiment-config $CONFIG 2>&1 | sudo tee /dev/ttyS1"
