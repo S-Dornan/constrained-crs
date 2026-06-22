@@ -37,54 +37,66 @@ POLL_INTERVAL=60
 echo "Initializing Smoke Test Orchestrator..."
 
 for EXP in "${EXPERIMENTS[@]}"; do
-  IFS=':' read -r NAME CORES RAM RATE REL_PATH FIND_YAML FIX_YAML <<< "$EXP"
+  # 1. Parse the array
+  IFS=':' read -r NAME CORES RAM RATE REL_DIR FIND_YAML FIX_YAML <<< "$EXP"
   
-  # Define the absolute guest path right here
-  CONFIG="/home/ubuntu/$REL_PATH"
+  # 2. Define Guest Paths (Absolute paths inside the Cleanroom)
+  GUEST_DIR="/home/ubuntu/$REL_DIR"
   FIND_CONFIG="$GUEST_DIR/$FIND_YAML"
   FIX_CONFIG="$GUEST_DIR/$FIX_YAML"
+  
+  # 3. Define Host Paths (Where the files live on your Proxmox server)
+  HOST_FIND="$SCRIPT_DIR/$REL_DIR/$FIND_YAML"
+  HOST_FIX="$SCRIPT_DIR/$REL_DIR/$FIX_YAML"
 
   echo "======================================================="
-  echo "STARTING SMOKE TEST: $NAME"
+  echo "STARTING CHAINED SMOKE TEST: $NAME"
   echo "Constraints -> Cores: $CORES | RAM: $RAM | Net: $RATE"
   echo "======================================================="
 
-  # 1. Build the fresh architecture using the parameterized script
+  # Build the fresh architecture using the parameterized script
   ./vm-config.sh "$CORES" "$RAM" "$RATE"
 
   # Prepare the unique directory on the Log Vault for this run
   qm guest exec $VM1_ID -- sudo -u ubuntu mkdir -p /home/ubuntu/vault-results/$NAME
 
-  # 2. Inject the Fuzzer Commands via detached tmux sessions
+  # Start the Valkey Queue
   echo "Triggering Valkey Queue..."
   qm guest exec $VM2_ID -- sudo -u ubuntu tmux new-session -d -s valkey 'cd /home/ubuntu/CRSBench && /home/ubuntu/.local/bin/uv run python scripts/valkey-helper.py start'
   
   sleep 30
   
   # ====================
-  # THE NEW VARIABLE: Absolute Path Injection
+  # THE NEW VARIABLE: Dual Absolute Path Injection
   # ====================
-  echo "[*] Injecting offline configuration into absolute safe-path..."
+  echo "[*] Injecting offline configurations into absolute safe-path..."
   
-  # Parse the directory out of the config path so we can create it
-  CONFIG_DIR=$(dirname "$CONFIG")
+  # Create the destination folder in the guest
+  qm guest exec $VM2_ID -- sudo -u ubuntu mkdir -p "$GUEST_DIR"
   
-  # 1. Create the destination folder in the user's home directory (Outside Git)
-  qm guest exec $VM2_ID -- sudo -u ubuntu mkdir -p "$CONFIG_DIR"
-    
-  # Inject Finding YAML
-  B64_FIND=$(base64 -w 0 "$FIND_CONFIG")
+  # Base64 encode from the HOST, decode into the GUEST
+  B64_FIND=$(base64 -w 0 "$HOST_FIND")
   qm guest exec $VM2_ID -- sudo -u ubuntu bash -c "echo '$B64_FIND' | base64 -d > $FIND_CONFIG"
 
-  # Inject Fixing YAML
-  B64_FIX=$(base64 -w 0 "$FIX_CONFIG")
+  B64_FIX=$(base64 -w 0 "$HOST_FIX")
   qm guest exec $VM2_ID -- sudo -u ubuntu bash -c "echo '$B64_FIX' | base64 -d > $FIX_CONFIG"
 
-  echo "[+] Configuration successfully injected to $CONFIG"
+  echo "[+] Configurations successfully injected to $GUEST_DIR"
 
+  # ==========================================
+  # EXECUTION: Chained Phases
+  # ==========================================
   echo "Triggering CRSBench Worker and Runner..."
-  qm guest exec $VM2_ID -- sudo -u ubuntu tmux new-session -d -s worker "cd /home/ubuntu/CRSBench && /home/ubuntu/.local/bin/uv run crsbench worker --experiment-config $CONFIG 2>&1 | sudo tee /dev/ttyS1"
-  qm guest exec $VM2_ID -- sudo -u ubuntu tmux new-session -d -s runner "cd /home/ubuntu/CRSBench && /home/ubuntu/.local/bin/uv run crsbench run --experiment-config $CONFIG 2>&1 | sudo tee /dev/ttyS1"
+  
+  # The Worker daemon only needs the Finding config to initialize
+  qm guest exec $VM2_ID -- sudo -u ubuntu tmux new-session -d -s worker "cd /home/ubuntu/CRSBench && /home/ubuntu/.local/bin/uv run crsbench worker --experiment-config $FIND_CONFIG 2>&1 | sudo tee /dev/ttyS1"
+  
+  # The Runner actively chains Phase 1 (Finding) into Phase 2 (Fixing)
+  qm guest exec $VM2_ID -- sudo -u ubuntu tmux new-session -d -s runner "cd /home/ubuntu/CRSBench && \
+    echo '[*] PHASE 1: BUG FINDING' | sudo tee -a /dev/ttyS1 && \
+    /home/ubuntu/.local/bin/uv run crsbench run --experiment-config $FIND_CONFIG 2>&1 | sudo tee -a /dev/ttyS1 && \
+    echo '[*] PHASE 2: BUG FIXING' | sudo tee -a /dev/ttyS1 && \
+    /home/ubuntu/.local/bin/uv run crsbench run --experiment-config $FIX_CONFIG 2>&1 | sudo tee -a /dev/ttyS1"
 
   # 3. Deterministic Polling Loop
   ELAPSED=0
