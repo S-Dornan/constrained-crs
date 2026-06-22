@@ -24,10 +24,10 @@ trap cleanup SIGINT SIGTERM
 # Define the runs based on methodology constraints: 
 # "Name : Cores : RAM(MB) : NetRate(MB/s) : ConfigPath"
 EXPERIMENTS=(
-  "smoke_1_baseline:8:32768:20:experiment-configs/smoke-testing/first-run.yaml"
-  "smoke_2_stepdown:6:24576:15:experiment-configs/smoke-testing/first-run.yaml"
-  "smoke_3_stepdown:4:16384:10:experiment-configs/smoke-testing/first-run.yaml"
-  "smoke_4_starved:2:8192:5:experiment-configs/smoke-testing/first-run.yaml"
+  "smoke_1_baseline:8:32768:20:experiment-configs/L16-QA:smoke-finding.yaml:smoke-fixing.yaml"
+  "smoke_2_stepdown:6:24576:15:experiment-configs/L16-QA:smoke-finding.yaml:smoke-fixing.yaml"
+  "smoke_3_stepdown:4:16384:10:experiment-configs/L16-QA:smoke-finding.yaml:smoke-fixing.yaml"
+  "smoke_4_starved:2:8192:5:experiment-configs/L16-QA:smoke-finding.yaml:smoke-fixing.yaml"
 )
 
 # 15 Minutes = 900 seconds (Approx 1 hour total runtime for 4 experiments)
@@ -37,10 +37,12 @@ POLL_INTERVAL=60
 echo "Initializing Smoke Test Orchestrator..."
 
 for EXP in "${EXPERIMENTS[@]}"; do
-  IFS=':' read -r NAME CORES RAM RATE REL_PATH <<< "$EXP"
+  IFS=':' read -r NAME CORES RAM RATE REL_PATH FIND_YAML FIX_YAML <<< "$EXP"
   
   # Define the absolute guest path right here
   CONFIG="/home/ubuntu/$REL_PATH"
+  FIND_CONFIG="$GUEST_DIR/$FIND_YAML"
+  FIX_CONFIG="$GUEST_DIR/$FIX_YAML"
 
   echo "======================================================="
   echo "STARTING SMOKE TEST: $NAME"
@@ -69,11 +71,15 @@ for EXP in "${EXPERIMENTS[@]}"; do
   
   # 1. Create the destination folder in the user's home directory (Outside Git)
   qm guest exec $VM2_ID -- sudo -u ubuntu mkdir -p "$CONFIG_DIR"
-  
-# 2. Base64 encode the local file and decode it directly into the new absolute path
-  B64_CONFIG=$(base64 -w 0 "$SCRIPT_DIR/$REL_PATH")
-  qm guest exec $VM2_ID -- sudo -u ubuntu bash -c "echo '$B64_CONFIG' | base64 -d > $CONFIG"
-  
+    
+  # Inject Finding YAML
+  B64_FIND=$(base64 -w 0 "$FIND_CONFIG")
+  qm guest exec $VM2_ID -- sudo -u ubuntu bash -c "echo '$B64_FIND' | base64 -d > $FIND_CONFIG"
+
+  # Inject Fixing YAML
+  B64_FIX=$(base64 -w 0 "$FIX_CONFIG")
+  qm guest exec $VM2_ID -- sudo -u ubuntu bash -c "echo '$B64_FIX' | base64 -d > $FIX_CONFIG"
+
   echo "[+] Configuration successfully injected to $CONFIG"
 
   echo "Triggering CRSBench Worker and Runner..."
