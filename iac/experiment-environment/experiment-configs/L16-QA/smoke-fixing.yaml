@@ -16,7 +16,7 @@ runtime:
       max_variants_per_cpv: 1
       # CRITICAL: Points to the exact output folder from the smoke-finding phase
       from_experiment_by_crs:
-        atlantis-multilang-given_fuzzer: ./results/experiment-data/smoke-phase1-finding/smoke-phase1-finding/atlantis-multilang-given_fuzzer
+        atlantis-multilang-given_fuzzer: ./results/experiment-data/smoke-phase1-finding/atlantis-multilang-given_fuzzer
   litellm:
     skip: true
 

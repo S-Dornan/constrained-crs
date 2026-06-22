@@ -1,5 +1,5 @@
 experiment:
-  name: L16-phase1-finding
+  name: L16-phase1-finding-2c
   task: bugfinding
   mode: full
   benchmark_suite: smoke/sanity

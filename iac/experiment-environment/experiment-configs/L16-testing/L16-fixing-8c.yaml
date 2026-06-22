@@ -1,5 +1,5 @@
 experiment:
-  name: L16-phase2-fixing
+  name: L16-phase2-fixing-8c
   task: bugfixing
   mode: delta
   benchmark_suite: smoke/sanity
@@ -16,7 +16,7 @@ runtime:
       max_variants_per_cpv: 1
       # Points to the exact output folder from Phase 1
       from_experiment_by_crs:
-        atlantis-multilang-given_fuzzer: ./results/experiment-data/L16-phase1-finding/L16-phase1-finding/atlantis-multilang-given_fuzzer
+        atlantis-multilang-given_fuzzer: ./results/experiment-data/L16-phase1-finding-8c/atlantis-multilang-given_fuzzer
   litellm:
     skip: true
 
