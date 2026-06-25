@@ -31,7 +31,7 @@ EXPERIMENTS=(
   "L16_04_starved:8:8192:5:experiment-configs/L16-testing:L16-finding-8c.yaml:L16-fixing-8c.yaml"
 
   # High-Mid CPU Group
-  "L16_05_stepdown:6:24576:20:experiment-configs/L16-testing:L16-finding-6c.yaml:L16-fixing-6c.yaml"
+  #"L16_05_stepdown:6:24576:20:experiment-configs/L16-testing:L16-finding-6c.yaml:L16-fixing-6c.yaml"
   "L16_06_baseline:6:32768:15:experiment-configs/L16-testing:L16-finding-6c.yaml:L16-fixing-6c.yaml"
   "L16_07_starved:6:8192:10:experiment-configs/L16-testing:L16-finding-6c.yaml:L16-fixing-6c.yaml"
   "L16_08_stepdown:6:16384:5:experiment-configs/L16-testing:L16-finding-6c.yaml:L16-fixing-6c.yaml"
@@ -103,6 +103,12 @@ for EXP in "${EXPERIMENTS[@]}"; do
   # Prepare the unique directory on the Log Vault for this run
   qm guest exec $VM1_ID -- sudo -u ubuntu mkdir -p /home/ubuntu/vault-results/$NAME
 
+  # DROP THE FAILSAFE: Seed the serial log so rclone GUARANTEES a sync
+  qm guest exec $VM1_ID -- sudo -u ubuntu bash -c "echo 'STATUS: RUN INITIALIZED' > /home/ubuntu/vault-results/$NAME/serial-console.log"
+
+  # DROP THE STATE TRACKER: Update the global pointer for immediate visibility
+  qm guest exec $VM1_ID -- sudo -u ubuntu bash -c "echo 'ACTIVE EXPERIMENT: $NAME' > /home/ubuntu/vault-results/current-run.txt"
+
   # Start the Valkey Queue
   echo "Triggering Valkey Queue..."
   qm guest exec $VM2_ID -- sudo -u ubuntu tmux new-session -d -s valkey 'cd /home/ubuntu/CRSBench && /home/ubuntu/.local/bin/uv run python scripts/valkey-helper.py start'
@@ -135,13 +141,14 @@ for EXP in "${EXPERIMENTS[@]}"; do
   qm guest exec $VM2_ID -- sudo -u ubuntu tmux new-session -d -s worker "cd /home/ubuntu/CRSBench && /home/ubuntu/.local/bin/uv run crsbench worker --experiment-config $FIND_CONFIG 2>&1 | sudo tee /dev/ttyS1"
   
   # The Runner actively chains Phase 1 (Finding) into Phase 2 (Fixing)
+  # [MODIFIED: Added tee intercept to write crash-log.txt to local SSD]
   qm guest exec $VM2_ID -- sudo -u ubuntu tmux new-session -d -s runner "cd /home/ubuntu/CRSBench && \
-    echo '[*] PHASE 1: BUG FINDING' | sudo tee -a /dev/ttyS1 && \
-    /home/ubuntu/.local/bin/uv run crsbench run --experiment-config $FIND_CONFIG 2>&1 | sudo tee -a /dev/ttyS1 && \
-    echo '[*] PHASE 2: BUG FIXING' | sudo tee -a /dev/ttyS1 && \
-    /home/ubuntu/.local/bin/uv run crsbench run --experiment-config $FIX_CONFIG 2>&1 | sudo tee -a /dev/ttyS1"
+    echo '[*] PHASE 1: BUG FINDING' | tee -a /home/ubuntu/crash-log.txt | sudo tee -a /dev/ttyS1 && \
+    /home/ubuntu/.local/bin/uv run crsbench run --experiment-config $FIND_CONFIG 2>&1 | tee -a /home/ubuntu/crash-log.txt | sudo tee -a /dev/ttyS1 && \
+    echo '[*] PHASE 2: BUG FIXING' | tee -a /home/ubuntu/crash-log.txt | sudo tee -a /dev/ttyS1 && \
+    /home/ubuntu/.local/bin/uv run crsbench run --experiment-config $FIX_CONFIG 2>&1 | tee -a /home/ubuntu/crash-log.txt | sudo tee -a /dev/ttyS1"
 
-  # 3. Deterministic Polling Loop
+# 3. Deterministic Polling Loop with 30-Minute Atomic Snapshots
   ELAPSED=0
   echo -n "Experiments running. Vault is logging. Monitoring progress"
 
@@ -151,6 +158,18 @@ for EXP in "${EXPERIMENTS[@]}"; do
       echo "" # Clear the line
       echo "Runner session terminated (completed or crashed) at $ELAPSED seconds."
       break
+    fi
+    
+    # Check if exactly 30 minutes (1800 seconds) have passed
+    if (( ELAPSED > 0 && ELAPSED % 1800 == 0 )); then
+      echo ""
+      echo "[*] Taking 30-minute atomic snapshot for $NAME..."
+      TIMESTAMP=$(date +%H%M)
+      
+      # Copy current telemetry into the run-specific folder
+      qm guest exec $VM1_ID -- sudo -u ubuntu bash -c "cp /home/ubuntu/experiment-telemetry.log /home/ubuntu/vault-results/$NAME/telemetry_${TIMESTAMP}.log"
+      
+      echo -n "Monitoring progress"
     fi
     
     echo -n "."
@@ -165,8 +184,13 @@ for EXP in "${EXPERIMENTS[@]}"; do
   echo "[*] Polling loop finished. Initiating data rescue protocol..."
   
   set -x # Turn on debugging
-  # Limit rsync to 2000 KB/s to prevent network interrupt panics on the Log Vault
-  qm guest exec $VM2_ID -- sudo -u ubuntu bash -c "if [ -d /home/ubuntu/CRSBench/results ]; then cd /home/ubuntu/CRSBench/results && rsync -avz --bwlimit=2000 -e 'ssh -i /home/ubuntu/.ssh/id_ed25519 -o StrictHostKeyChecking=no' . ubuntu@172.16.255.20:/home/ubuntu/vault-results/$NAME/; else echo 'WARNING: Results directory not found, skipping exfiltration.'; fi"
+  
+  # 1. DOUBLE-TAP LOGGING: Force exfiltrate the raw text log first, regardless of fuzzer state
+  qm guest exec $VM2_ID -- sudo -u ubuntu bash -c "rsync -avz --bwlimit=2000 -e 'ssh -i /home/ubuntu/.ssh/id_ed25519 -o StrictHostKeyChecking=no' /home/ubuntu/crash-log.txt ubuntu@172.16.255.20:/home/ubuntu/vault-results/$NAME/raw-crash-log.txt || true"
+
+  # 2. Extract full results if the fuzzer survived long enough to create them
+  qm guest exec $VM2_ID -- sudo -u ubuntu bash -c "if [ -d /home/ubuntu/CRSBench/results ]; then cd /home/ubuntu/CRSBench/results && rsync -avz --bwlimit=2000 -e 'ssh -i /home/ubuntu/.ssh/id_ed25519 -o StrictHostKeyChecking=no' . ubuntu@172.16.255.20:/home/ubuntu/vault-results/$NAME/; else echo 'WARNING: Results directory not found, fuzzer likely OOM killed.'; fi"
+  
   set +x # Turn off debugging
 
   # Wait dynamically for the SSH/Rsync TCP connection to drop from ESTABLISHED

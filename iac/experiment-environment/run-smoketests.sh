@@ -84,6 +84,12 @@ for EXP in "${EXPERIMENTS[@]}"; do
   # Prepare the unique directory on the Log Vault for this run
   qm guest exec $VM1_ID -- sudo -u ubuntu mkdir -p /home/ubuntu/vault-results/$NAME
 
+  # DROP THE FAILSAFE: Seed the serial log so rclone GUARANTEES a sync
+  qm guest exec $VM1_ID -- sudo -u ubuntu bash -c "echo 'STATUS: RUN INITIALIZED' > /home/ubuntu/vault-results/$NAME/serial-console.log"
+
+  # DROP THE STATE TRACKER: Update the global pointer for immediate visibility
+  qm guest exec $VM1_ID -- sudo -u ubuntu bash -c "echo 'ACTIVE EXPERIMENT: $NAME' > /home/ubuntu/vault-results/current-run.txt"
+
   # Start the Valkey Queue
   echo "Triggering Valkey Queue..."
   qm guest exec $VM2_ID -- sudo -u ubuntu tmux new-session -d -s valkey 'cd /home/ubuntu/CRSBench && /home/ubuntu/.local/bin/uv run python scripts/valkey-helper.py start'
@@ -115,12 +121,13 @@ for EXP in "${EXPERIMENTS[@]}"; do
   # The Worker daemon only needs the Finding config to initialize
   qm guest exec $VM2_ID -- sudo -u ubuntu tmux new-session -d -s worker "cd /home/ubuntu/CRSBench && /home/ubuntu/.local/bin/uv run crsbench worker --experiment-config $FIND_CONFIG 2>&1 | sudo tee /dev/ttyS1"
   
-  # The Runner actively chains Phase 1 (Finding) into Phase 2 (Fixing)
+# The Runner actively chains Phase 1 (Finding) into Phase 2 (Fixing)
+  # [MODIFIED: Added tee intercept to write crash-log.txt to local SSD]
   qm guest exec $VM2_ID -- sudo -u ubuntu tmux new-session -d -s runner "cd /home/ubuntu/CRSBench && \
-    echo '[*] PHASE 1: BUG FINDING' | sudo tee -a /dev/ttyS1 && \
-    /home/ubuntu/.local/bin/uv run crsbench run --experiment-config $FIND_CONFIG 2>&1 | sudo tee -a /dev/ttyS1 && \
-    echo '[*] PHASE 2: BUG FIXING' | sudo tee -a /dev/ttyS1 && \
-    /home/ubuntu/.local/bin/uv run crsbench run --experiment-config $FIX_CONFIG 2>&1 | sudo tee -a /dev/ttyS1"
+    echo '[*] PHASE 1: BUG FINDING' | tee -a /home/ubuntu/crash-log.txt | sudo tee -a /dev/ttyS1 && \
+    /home/ubuntu/.local/bin/uv run crsbench run --experiment-config $FIND_CONFIG 2>&1 | tee -a /home/ubuntu/crash-log.txt | sudo tee -a /dev/ttyS1 && \
+    echo '[*] PHASE 2: BUG FIXING' | tee -a /home/ubuntu/crash-log.txt | sudo tee -a /dev/ttyS1 && \
+    /home/ubuntu/.local/bin/uv run crsbench run --experiment-config $FIX_CONFIG 2>&1 | tee -a /home/ubuntu/crash-log.txt | sudo tee -a /dev/ttyS1"
 
   # 3. Deterministic Polling Loop
   ELAPSED=0
@@ -146,8 +153,13 @@ for EXP in "${EXPERIMENTS[@]}"; do
   echo "[*] Polling loop finished. Initiating data rescue protocol..."
   
   set -x # Turn on debugging
-  # Limit rsync to 2000 KB/s to prevent network interrupt panics on the Log Vault
-  qm guest exec $VM2_ID -- sudo -u ubuntu bash -c "if [ -d /home/ubuntu/CRSBench/results ]; then cd /home/ubuntu/CRSBench/results && rsync -avz --bwlimit=2000 -e 'ssh -i /home/ubuntu/.ssh/id_ed25519 -o StrictHostKeyChecking=no' . ubuntu@172.16.255.20:/home/ubuntu/vault-results/$NAME/; else echo 'WARNING: Results directory not found, skipping exfiltration.'; fi"
+  
+  # 1. DOUBLE-TAP LOGGING: Force exfiltrate the raw text log first, regardless of fuzzer state
+  qm guest exec $VM2_ID -- sudo -u ubuntu bash -c "rsync -avz --bwlimit=2000 -e 'ssh -i /home/ubuntu/.ssh/id_ed25519 -o StrictHostKeyChecking=no' /home/ubuntu/crash-log.txt ubuntu@172.16.255.20:/home/ubuntu/vault-results/$NAME/raw-crash-log.txt || true"
+
+  # 2. Extract full results if the fuzzer survived long enough to create them
+  qm guest exec $VM2_ID -- sudo -u ubuntu bash -c "if [ -d /home/ubuntu/CRSBench/results ]; then cd /home/ubuntu/CRSBench/results && rsync -avz --bwlimit=2000 -e 'ssh -i /home/ubuntu/.ssh/id_ed25519 -o StrictHostKeyChecking=no' . ubuntu@172.16.255.20:/home/ubuntu/vault-results/$NAME/; else echo 'WARNING: Results directory not found, fuzzer likely OOM killed.'; fi"
+  
   set +x # Turn off debugging
 
   # Wait dynamically for the SSH/Rsync TCP connection to drop from ESTABLISHED
@@ -160,7 +172,7 @@ for EXP in "${EXPERIMENTS[@]}"; do
 
   # Archive the serial telemetry into the folder, then truncate the original file so it's clean for the next run
   echo "Archiving serial telemetry for $NAME..."
-  qm guest exec $VM1_ID -- bash -c "cp /home/ubuntu/experiment-telemetry.log /home/ubuntu/vault-results/$NAME/serial-console.log && > /home/ubuntu/experiment-telemetry.log"
+  qm guest exec $VM1_ID -- sudo -u ubuntu bash -c "cat /home/ubuntu/experiment-telemetry.log >> /home/ubuntu/vault-results/$NAME/serial-console.log && > /home/ubuntu/experiment-telemetry.log"
 
   # 4. Evaluate and Log Host-Level Results
   if [ $ELAPSED -ge $MAX_RUNTIME ]; then
