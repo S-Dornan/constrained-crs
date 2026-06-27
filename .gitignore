@@ -274,3 +274,11 @@ dkms.conf
 # Keys
 *.key
 *.pub
+
+# Base OS images
+*.img
+*.iso
+
+# Specific failsafes
+crs-sync-key
+rclone.conf
