@@ -71,7 +71,7 @@ runcmd:
   - "while ! bash -c 'echo > /dev/tcp/172.16.255.20/3128' 2>/dev/null; do sleep 5; done"
   
   # Secure the exfiltration key before any intensive tasks begin
-  - chown ubuntu:ubuntu /home/ubuntu/.ssh/id_ed25519
+  - chown -R ubuntu:ubuntu /home/ubuntu/.ssh/id_ed25519
   - chmod 0600 /home/ubuntu/.ssh/id_ed25519
 
   # Enable QEMU
