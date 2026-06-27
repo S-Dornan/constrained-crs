@@ -270,3 +270,7 @@ dkms.conf
 
 # Config files
 *.conf
+
+# Keys
+*.key
+*.pub
