@@ -24,10 +24,8 @@ trap cleanup SIGINT SIGTERM
 # Define the runs based on methodology constraints: 
 # "Name : Cores : RAM(MB) : NetRate(MB/s) : ConfigPath"
 EXPERIMENTS=(
-  "l16-smoke_1_baseline:8:32768:20:experiment-configs/L16-QA:smoke-finding.yaml:smoke-fixing.yaml"
-  "l16-smoke_2_stepdown:6:24576:15:experiment-configs/L16-QA:smoke-finding.yaml:smoke-fixing.yaml"
-  "l16-smoke_3_stepdown:4:16384:10:experiment-configs/L16-QA:smoke-finding.yaml:smoke-fixing.yaml"
-  "l16-smoke_4_starved:2:8192:5:experiment-configs/L16-QA:smoke-finding.yaml:smoke-fixing.yaml"
+  "l16-smoke_1_baseline:8:16384:20:experiment-configs/L16-QA:smoke-finding.yaml:smoke-fixing.yaml"
+  "l16-smoke_2_stepdown:6:8192:15:experiment-configs/L16-QA:smoke-finding.yaml:smoke-fixing.yaml"
 )
 
 # 15 Minutes = 900 seconds (Approx 1 hour total runtime for 4 experiments)
@@ -129,16 +127,73 @@ for EXP in "${EXPERIMENTS[@]}"; do
     echo '[*] PHASE 2: BUG FIXING' | tee -a /home/ubuntu/crash-log.txt | sudo tee -a /dev/ttyS1 && \
     /home/ubuntu/.local/bin/uv run crsbench run --experiment-config $FIX_CONFIG 2>&1 | tee -a /home/ubuntu/crash-log.txt | sudo tee -a /dev/ttyS1"
 
-  # 3. Deterministic Polling Loop
+  # 3. Deterministic Polling Loop with 30-Minute Atomic Snapshots
   ELAPSED=0
+  AGENT_STRIKES=0
+  STRIKE_LIMIT=10 # 10 consecutive failures = 10 minutes of unresponsiveness
+  
   echo -n "Experiments running. Vault is logging. Monitoring progress"
 
   while [ $ELAPSED -lt $MAX_RUNTIME ]; do
-    # Check if 'runner' is still in the active tmux session list
-    if ! qm guest exec $VM2_ID -- sudo -u ubuntu tmux ls 2>/dev/null | grep -q "runner"; then
-      echo "" # Clear the line
-      echo "Runner session terminated (completed or crashed) at $ELAPSED seconds."
-      break
+    
+    # 1. Independent Agent Health Check with Strike Counter
+    if ! qm agent "$VM2_ID" ping >/dev/null 2>&1; then
+      AGENT_STRIKES=$((AGENT_STRIKES + 1))
+      echo -n "[Agent Stutter: Strike $AGENT_STRIKES]"
+      
+      # If we hit the strike limit, the VM is a Zombie. Execute Forensic Reboot.
+      if [ "$AGENT_STRIKES" -ge "$STRIKE_LIMIT" ]; then
+        echo ""
+        echo "[FATAL] Guest Agent dead for $STRIKE_LIMIT consecutive checks. Kernel Panic assumed."
+        echo "[*] Initiating Forensic Reboot to scavenge local disk data..."
+        
+        # 1. Pull the virtual power cord and turn it back on
+        qm stop $VM2_ID >/dev/null 2>&1 || true
+        qm start $VM2_ID >/dev/null 2>&1
+        
+        # 2. Wait for the fresh OS to boot and the agent to wake up
+        echo -n "[*] Waiting for Zombie VM to resurrect"
+        RESURRECT_RETRIES=60 # 2 minutes to boot
+        RESURRECT_COUNT=0
+        
+        until qm agent "$VM2_ID" ping >/dev/null 2>&1; do
+          if [ "$RESURRECT_COUNT" -ge "$RESURRECT_RETRIES" ]; then
+             echo " [FAILED]"
+             echo "[!] File system likely corrupted (fsck hang). Scavenge impossible."
+             break 2 # Break out of the until loop AND the main while loop
+          fi
+          echo -n "."
+          sleep 2
+          RESURRECT_COUNT=$((RESURRECT_COUNT + 1))
+        done
+        
+        # Give SSH and Cloud-Init 15 seconds to fully bind after ping succeeds
+        sleep 15
+        echo " [RESURRECTED]"
+        echo "[*] Disk accessible. Proceeding to autopsy."
+        break # Break the main while loop to trigger the Double-Tap extraction
+      fi
+    else
+      # 2. The agent responded! Reset the strike counter and check the process.
+      AGENT_STRIKES=0 
+      
+      if ! qm guest exec $VM2_ID -- sudo -u ubuntu tmux ls 2>/dev/null | grep -q "runner"; then
+        echo "" 
+        echo "Runner session terminated (completed or crashed) at $ELAPSED seconds."
+        break
+      fi
+    fi
+    
+    # 3. Check if exactly 30 minutes (1800 seconds) have passed
+    if (( ELAPSED > 0 && ELAPSED % 1800 == 0 )); then
+      echo ""
+      echo "[*] Taking 30-minute atomic snapshot for $NAME..."
+      TIMESTAMP=$(date +%H%M)
+      
+      # Copy current telemetry into the run-specific folder
+      qm guest exec $VM1_ID -- sudo -u ubuntu bash -c "cp /home/ubuntu/experiment-telemetry.log /home/ubuntu/vault-results/$NAME/telemetry_${TIMESTAMP}.log"
+      
+      echo -n "Monitoring progress"
     fi
     
     echo -n "."
