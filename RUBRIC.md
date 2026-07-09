@@ -1,0 +1,15 @@
+| Criteria | Above Expectations | At Expected Level | Below Expectations | Criterion Score |
+| :--- | :--- | :--- | :--- | :--- |
+| **Problem (10)** | **10 points** • The problem that the case study addresses is described and motivated in great detail. • The objectives of the case study are discussed clearly. | **6 points** • The problem that the case study addresses is described and motivated sufficiently. • The objectives are discussed but more detail could have been provided to explain how they relate to the problem that the case study is trying to address. | **2 points** • No motivation is provided to justify the need to address the case study. • The objectives of the case study are not discussed clearly. | / 10 |
+| **Background (20)** | **20 points** • Relevant background knowledge to conduct the case study is reviewed. • Background knowledge is critically reviewed to highlight adavantages and disadvantages. | **10 points** • Relevant background knowledge to conduct the case study is reviewed. However the documents reviewed are not comprehensive. • Background knowledge is not always reviewed critically. | **2 points** • Limited background knowledge to conduct the case study is reviewed. • Background knowledge is not reviewed critically. | / 20 |
+| **Design (40)** | **40 points** • The proposed solution is discussed at the detailed level and can be replicated. • The proposed solution is sound, following best practices. • The work/solution adequately addresses the objectives of the case study. | **20 points** • Details of the proposed solutions are missing. • The proposed solution is sound, following best practices. • The work/solution partially addresses the objectives of the case study. | **5 points** • The proposed solution is not discussed in detail and it is hard to understand its core contributions. • The proposed solution does not follow best practices. • The work/solution partially addresses the objectives of the case study. | / 40 |
+| **Implementation (30)** | **30 points** • The report discusses how the solution was applied in practice. • The report provides critical reflections on the lessons learned and limitations of the approach. | **15 points** • The report discusses how the solution was applied in practice but does not always provide sufficient details explaining the activities that were performed. • The report partially provides reflections on the lessons learned and limitations of the approach. | **5 points** • The report does not discuss how the solution was applied in practice. • The report provides limited critical reflections on the lessons learned and limitations of the approach. | / 30 |
+
+---
+
+| Level | Requirement | Total Score |
+| :--- | :--- | :--- |
+| **Level 4** | 11 points minimum | **/ 100** |
+| **Level 3** | 8 points minimum | |
+| **Level 2** | 5 points minimum | |
+| **Level 1** | 0 points minimum | |
