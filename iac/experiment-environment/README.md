@@ -2,15 +2,35 @@
 
 Experimental Infrastructure as code scripts to run the experiments go here
 
-Current template is customized and untested as at the 18th of June 2026
+Current template is customized and validated as at the 26th of July 2026
+
+### Prerequisites
+
+* Server with [Proxmox VE installed,](https://www.proxmox.com/en/products/proxmox-virtual-environment/get-started) DHCP for the virtual machines created by the system, and shell access over the web interface.
+  > [!NOTE]
+  > It **is** possible to run these experiments with shell access restricted to users on the LAN only, inbound access to the hypervisor from the internet is not required.
+
+  > [!Caution]
+  > 
+  > * Outbound access from the hypervisor to the internet is required.
+  > * Outbound access from the cleanroom to the internet is required in the setup phase.
+  > * Outbound access from the logging VM to the internet is required at all times.
+* Git installed on the hypervisor
+* Rclone installed on your development environment.
+* [Optional] Uptime Kuma set up and running
 
 ### The Execution Sequence
 
 **0. Set up the dependencies**
-1. Run ```rclone config``` on your personal laptop. Take the resulting ```rclone.conf``` file and drop it in the same folder as the ```vm-config.sh``` file
 
+Run ```rclone config``` on your development environment. Take the resulting ```rclone.conf``` file and drop it in the same folder as the ```vm-config.sh``` file
+
+> [!Caution]
+> 
+>The ```rclone.conf``` file enables anyone with access to the file and ```rclone``` installed to access the remote environment. Do not share it with anyone who does not have a documented need to access it, and do not save it to the Git repository.
 
 **1. Build the Base Template**
+
 Run your `setup-template.sh` script on the Proxmox host. This will download the Noble Numbat image and bind it to VM 9001.
 
 ```bash
@@ -19,6 +39,7 @@ chmod +x setup-template.sh
 ```
 
 **2. Compile and Provision**
+
 Ensure your `.env` file (with your API key), your completed `rclone.conf` file, and your `cloud-init.yaml` are sitting in the same directory as your `vm-config.sh` script. Run the compiler and watch Proxmox spin up the Cleanroom and the Log Vault.
 
 ```bash
@@ -27,7 +48,8 @@ chmod +x vm-config.sh
 
 ```
 
-**3. Watch the Magic Happen**
+**3. Watch the Setup Happen**
+
 Because Cloud-Init runs silently in the background, the VM might look like it's doing nothing from the Proxmox UI. Open the console for `crs-cleanroom` and run this to watch the live installation of Docker, UV, and the GitHub clones:
 
 ```bash
