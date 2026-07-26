@@ -112,4 +112,5 @@ chmod +x teardown.sh
 ./teardown.sh
 ```
 
-**Keep in mind that this will destroy all data on all associated machines.**
+> [!CAUTION]
+> Keep in mind that this will destroy all data on all associated machines.
