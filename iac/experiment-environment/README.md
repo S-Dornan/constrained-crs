@@ -27,7 +27,7 @@ Run ```rclone config``` on your development environment. Take the resulting ```r
 
 > [!Caution]
 > 
->The ```rclone.conf``` file enables anyone with access to the file and ```rclone``` installed to access the remote environment. Do not share it with anyone who does not have a documented need to access it, and do not save it to the Git repository.
+>The ```rclone.conf``` file enables anyone with access to the file and ```rclone``` installed to access the remote environment. Do not share it with anyone who does not need it, and do not save it to the Git repository.
 
 **1. Build the Base Template**
 
