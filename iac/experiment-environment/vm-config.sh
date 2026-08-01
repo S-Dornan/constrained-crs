@@ -42,19 +42,24 @@ cp cloud-init-cleanroom.yaml /var/lib/vz/snippets/cloud-init-cleanroom.yaml
 # ==========================================
 echo "[*] Injecting secrets into staged snippets..."
 
-# Extract raw IP without CIDR notation
+# Extract raw IPs without CIDR notation
 VM1_IP_RAW=${VM1_IP%/*}
+VM2_IP_RAW=${VM2_IP%/*}
 
 # Map Proxmox serial interface name (default index 1 maps to ttyS1)
 SERIAL_DEV="ttyS1"
 
-# Inject IPs & Serial Port (Logging VM Only)
+# Inject IPs & Serial Port
 sed -i "s|__VM1_IP_RAW__|$VM1_IP_RAW|g" /var/lib/vz/snippets/cloud-init-logging.yaml
+sed -i "s|__VM1_IP_RAW__|$VM1_IP_RAW|g" /var/lib/vz/snippets/cloud-init-cleanroom.yaml
+sed -i "s|__VM2_IP_RAW__|$VM2_IP_RAW|g" /var/lib/vz/snippets/cloud-init-cleanroom.yaml
 sed -i "s|__SERIAL_DEV__|$SERIAL_DEV|g" /var/lib/vz/snippets/cloud-init-logging.yaml
 
-# Inject System Password and Expiration Policy (Logging VM Only)
+# Inject System Password and Expiration Policy
 sed -i "s|__DEFAULT_PASSWORD__|$DEFAULT_VM_PASSWORD|g" /var/lib/vz/snippets/cloud-init-logging.yaml
+sed -i "s|__DEFAULT_PASSWORD__|$DEFAULT_VM_PASSWORD|g" /var/lib/vz/snippets/cloud-init-cleanroom.yaml
 sed -i "s|__FORCE_PASSWORD_CHANGE__|$FORCE_PASSWORD_CHANGE|g" /var/lib/vz/snippets/cloud-init-logging.yaml
+sed -i "s|__FORCE_PASSWORD_CHANGE__|$FORCE_PASSWORD_CHANGE|g" /var/lib/vz/snippets/cloud-init-cleanroom.yaml
 
 # Log Vault Secrets
 sed -i "s|__LOG_FILE__|$LOG_FILE|g" /var/lib/vz/snippets/cloud-init-logging.yaml
@@ -64,7 +69,7 @@ sed -i "s|__CF_ID__|$CF_CLIENT_ID|g" /var/lib/vz/snippets/cloud-init-logging.yam
 sed -i "s|__CF_SECRET__|$CF_CLIENT_SECRET|g" /var/lib/vz/snippets/cloud-init-logging.yaml
 sed -i "s|__RCLONE_REMOTE_PATH__|$RCLONE_REMOTE_PATH|g" /var/lib/vz/snippets/cloud-init-logging.yaml
   
-# Cleanroom Fuzzer Secrets (Legacy placeholders still present)
+# Cleanroom Fuzzer Secrets
 sed -i "s|__BASE_URL__|$CRSBENCH_LLM_UPSTREAM_BASE_URL|g" /var/lib/vz/snippets/cloud-init-cleanroom.yaml
 sed -i "s|__GEMINI_API_KEY__|$CRSBENCH_LLM_UPSTREAM_API_KEY|g" /var/lib/vz/snippets/cloud-init-cleanroom.yaml
 
