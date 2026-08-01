@@ -1,8 +1,22 @@
 #!/usr/bin/env bash
+#
+# Copyright (C) 2026 Sam Dornan
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+#
 # Backplane & SSH Validation Script
 
-VM1_ID=301
-VM2_ID=302
+# ==========================================
+# Load Environment Variables
+# ==========================================
+if [ -f ".env" ]; then
+  source .env
+else
+  echo "[!] FATAL: .env file not found. Cannot load Proxmox configuration."
+  exit 1
+fi
+
+# Extract IP without the CIDR notation (e.g., 172.16.255.20/24 -> 172.16.255.20)
+VAULT_IP=${VM1_IP%/*}
 
 echo "======================================================="
 echo "INITIATING BACKPLANE & SSH VALIDATION TEST"
@@ -20,8 +34,8 @@ echo "[*] Preparing the Vault landing zone..."
 qm guest exec $VM1_ID -- sudo -u ubuntu mkdir -p /home/ubuntu/vault-results/validation-test
 
 # 4. Fire the payload across the isolated backplane using the injected SSH key
-echo "[*] Executing Rsync over 172.16.255.x backplane..."
-qm guest exec $VM2_ID -- sudo -u ubuntu bash -c "rsync -avz -e 'ssh -o StrictHostKeyChecking=no' /home/ubuntu/test-payload.txt ubuntu@172.16.255.20:/home/ubuntu/vault-results/validation-test/"
+echo "[*] Executing Rsync over $VAULT_IP backplane..."
+qm guest exec $VM2_ID -- sudo -u ubuntu bash -c "rsync -avz -e 'ssh -o StrictHostKeyChecking=no' /home/ubuntu/test-payload.txt ubuntu@$VAULT_IP:/home/ubuntu/vault-results/validation-test/"
 
 # 5. Verify the payload arrived intact
 echo "[*] Verifying payload receipt on the Log Vault..."
