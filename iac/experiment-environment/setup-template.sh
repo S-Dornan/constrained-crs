@@ -1,10 +1,19 @@
 #!/usr/bin/env bash
 # Run on Proxmox Host to create the base Cloud-Init Template
 
-TEMPLATE_ID=9001
+# ==========================================
+# Load Environment Variables
+# ==========================================
+if [ -f ".env" ]; then
+  source .env
+else
+  echo "[!] FATAL: .env file not found. Cannot load Proxmox configuration."
+  exit 1
+fi
+
+# Variables specific to OS template generation
 IMAGE_URL="https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img"
 IMAGE_NAME="noble-server-cloudimg-amd64.img"
-STORAGE="local-lvm" # Adjust this if your VM storage is named differently
 
 echo "--- Starting Template Creation for ID $TEMPLATE_ID ---"
 
@@ -29,7 +38,7 @@ echo "Importing disk to $STORAGE..."
 qm importdisk $TEMPLATE_ID "$IMAGE_NAME" "$STORAGE"
 
 # 5. Configure the VM to use the imported disk
-# Note: 'qm importdisk' creates a volume name like 'vm-9000-disk-0'
+# Note: 'qm importdisk' creates a volume name like 'vm-9001-disk-0'
 qm set $TEMPLATE_ID --scsihw virtio-scsi-pci --scsi0 "$STORAGE:vm-$TEMPLATE_ID-disk-0"
 
 # 6. Add the Cloud-Init drive
