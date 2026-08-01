@@ -1,9 +1,20 @@
 #!/usr/bin/env bash
 # Smoke Test Controller for the OSS-CRS starvation benchmark methodology
 
-VM1_ID=301
-VM2_ID=302
+# ==========================================
+# Load Environment Variables
+# ==========================================
+if [ -f ".env" ]; then
+  source .env
+else
+  echo "[!] FATAL: .env file not found. Cannot load Proxmox configuration."
+  exit 1
+fi
+
 SCRIPT_DIR=$(dirname "$0")
+
+# Extract raw IP without CIDR notation for Rsync targets
+VM1_IP_RAW=${VM1_IP%/*}
 
 # ==========================================
 # Graceful Interrupt Handler
@@ -227,16 +238,16 @@ for EXP in "${EXPERIMENTS[@]}"; do
   set -x # Turn on debugging
   
   # 1. DOUBLE-TAP LOGGING: Force exfiltrate the raw text log first, regardless of fuzzer state
-  qm guest exec $VM2_ID -- sudo -u ubuntu bash -c "rsync -avz --bwlimit=2000 -e 'ssh -i /home/ubuntu/.ssh/id_ed25519 -o StrictHostKeyChecking=no' /home/ubuntu/crash-log.txt ubuntu@172.16.255.20:/home/ubuntu/vault-results/$NAME/raw-crash-log.txt || true"
+  qm guest exec $VM2_ID -- sudo -u ubuntu bash -c "rsync -avz --bwlimit=2000 -e 'ssh -i /home/ubuntu/.ssh/id_ed25519 -o StrictHostKeyChecking=no' /home/ubuntu/crash-log.txt ubuntu@${VM1_IP_RAW}:/home/ubuntu/vault-results/$NAME/raw-crash-log.txt || true"
 
   # 2. Extract full results if the fuzzer survived long enough to create them
-  qm guest exec $VM2_ID -- sudo -u ubuntu bash -c "if [ -d /home/ubuntu/CRSBench/results ]; then cd /home/ubuntu/CRSBench/results && rsync -avz --bwlimit=2000 -e 'ssh -i /home/ubuntu/.ssh/id_ed25519 -o StrictHostKeyChecking=no' . ubuntu@172.16.255.20:/home/ubuntu/vault-results/$NAME/; else echo 'WARNING: Results directory not found, fuzzer likely OOM killed.'; fi"
+  qm guest exec $VM2_ID -- sudo -u ubuntu bash -c "if [ -d /home/ubuntu/CRSBench/results ]; then cd /home/ubuntu/CRSBench/results && rsync -avz --bwlimit=2000 -e 'ssh -i /home/ubuntu/.ssh/id_ed25519 -o StrictHostKeyChecking=no' . ubuntu@${VM1_IP_RAW}:/home/ubuntu/vault-results/$NAME/; else echo 'WARNING: Results directory not found, fuzzer likely OOM killed.'; fi"
   
   set +x # Turn off debugging
 
   # Wait dynamically for the SSH/Rsync TCP connection to drop from ESTABLISHED
   echo -n "Waiting for network buffer flush and TCP connection closure"
-  while qm guest exec $VM2_ID -- sudo -u ubuntu ss -tn 2>/dev/null | grep -q "172.16.255.20:22.*ESTABLISHED"; do
+  while qm guest exec $VM2_ID -- sudo -u ubuntu ss -tn 2>/dev/null | grep -q "${VM1_IP_RAW}:22.*ESTABLISHED"; do
     echo -n "."
     sleep 2
   done
