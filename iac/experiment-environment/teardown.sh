@@ -1,12 +1,22 @@
 #!/usr/bin/env bash
 
+# ==========================================
+# Load Environment Variables
+# ==========================================
+if [ -f ".env" ]; then
+  source .env
+else
+  echo "[!] FATAL: .env file not found. Cannot load Proxmox configuration."
+  exit 1
+fi
+
 # Define the cleanup function
 cleanup() {
     echo "Executing teardown sequence..."
     
     # 1. Kill specific background relay utilities by name or port
     # Forcefully free up the engine port if it's trapped
-    local target_port=9001
+    local target_port=$SERIAL_PORT
     local pid
     pid=$(lsof -t -i :$target_port 2>/dev/null || true)
     
@@ -19,13 +29,13 @@ cleanup() {
     fi
 
     # 2. Stop and destroy the architecture
-    echo "Nuking Log Vault (VM 301)..."
-    qm stop 301 2>/dev/null || true
-    qm destroy 301
+    echo "Nuking Log Vault (VM $VM1_ID)..."
+    qm stop $VM1_ID 2>/dev/null || true
+    qm destroy $VM1_ID
 
-    echo "Nuking Cleanroom (VM 302)..."
-    qm stop 302 2>/dev/null || true
-    qm destroy 302
+    echo "Nuking Cleanroom (VM $VM2_ID)..."
+    qm stop $VM2_ID 2>/dev/null || true
+    qm destroy $VM2_ID
     
     echo "Teardown complete. Ready for cold boot."
 }
