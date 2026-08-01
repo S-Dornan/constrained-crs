@@ -41,7 +41,16 @@ cp cloud-init-cleanroom.yaml /var/lib/vz/snippets/cloud-init-cleanroom.yaml
 # Secret Injection (Architecture Observability & Auth)
 # ==========================================
 echo "[*] Injecting secrets into staged snippets..."
-  
+
+# Extract raw IP without CIDR notation for Squid config
+VM1_IP_RAW=${VM1_IP%/*}
+
+# Map Proxmox serial interface name (default index 1 maps to ttyS1)
+SERIAL_DEV="ttyS1"
+
+sed -i "s|__VM1_IP_RAW__|$VM1_IP_RAW|g" /var/lib/vz/snippets/cloud-init-logging.yaml
+sed -i "s|__SERIAL_DEV__|$SERIAL_DEV|g" /var/lib/vz/snippets/cloud-init-logging.yaml
+
 # Log Vault Secrets
 sed -i "s|__LOG_FILE__|$LOG_FILE|g" /var/lib/vz/snippets/cloud-init-logging.yaml
 sed -i "s|__HEALTH_URL__|$HEALTH_PUSH_URL|g" /var/lib/vz/snippets/cloud-init-logging.yaml

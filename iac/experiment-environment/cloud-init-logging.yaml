@@ -33,7 +33,7 @@ write_files:
   - path: /etc/systemd/system/serial-logger.service
     content: |
       [Unit]
-      Description=Record telemetry from Cleanroom via ttyS1
+      Description=Record telemetry from Cleanroom via __SERIAL_DEV__
       After=multi-user.target
 
       [Service]
@@ -41,8 +41,8 @@ write_files:
       User=root
       ExecStartPre=/bin/touch /home/ubuntu/experiment-telemetry.log
       ExecStartPre=/bin/chown ubuntu:ubuntu /home/ubuntu/experiment-telemetry.log
-      ExecStartPre=/bin/chmod 666 /dev/ttyS1
-      ExecStart=/bin/sh -c 'stty -F /dev/ttyS1 115200 raw -echo && cat /dev/ttyS1 >> /home/ubuntu/experiment-telemetry.log'
+      ExecStartPre=/bin/chmod 666 /dev/__SERIAL_DEV__
+      ExecStart=/bin/sh -c 'stty -F /dev/__SERIAL_DEV__ 115200 raw -echo && cat /dev/__SERIAL_DEV__ >> /home/ubuntu/experiment-telemetry.log'
       Restart=always
       RestartSec=2
 
@@ -53,7 +53,7 @@ write_files:
   - path: /etc/squid/squid.conf
     content: |
       # Listen strictly on the internal backplane interface
-      http_port 172.16.255.20:3128
+      http_port __VM1_IP_RAW__:3128
 
       # Define the Cleanroom subnet and allow access
       acl backplane src 172.16.255.0/24
@@ -126,7 +126,6 @@ runcmd:
   # Allow inbound access to Squid Proxy
   - iptables -I INPUT 1 -p tcp --dport 3128 -j ACCEPT
 
-  
   # Install Docker Native (Bulletproofed with dpkg repair)
   - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --yes --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
   - echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
