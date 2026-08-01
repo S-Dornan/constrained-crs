@@ -1,13 +1,20 @@
 #!/usr/bin/env bash
+
+# Copyright (C) 2026 Sam Dornan
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+
 # Run on Proxmox Host
 # Provisions the OSS-CRS Cleanroom (Ephemeral) and the Log Vault (Persistent)
 
-TEMPLATE_ID=9001
-STORAGE="local-lvm"
-VM1_SNIPPET_PATH="local:snippets/cloud-init-logging.yaml"
-VM2_SNIPPET_PATH="local:snippets/cloud-init-cleanroom.yaml"
-VM1_ID="301"
-VM2_ID="302"
+# ==========================================
+# Load Environment Variables
+# ==========================================
+if [ -f ".env" ]; then
+  source .env
+else
+  echo "[!] FATAL: .env file not found. Cannot load Proxmox configuration."
+  exit 1
+fi
 
 # Accept CLI arguments for resource starvation, with fallback defaults
 TARGET_CORES=${1:-8}
@@ -33,26 +40,19 @@ cp cloud-init-cleanroom.yaml /var/lib/vz/snippets/cloud-init-cleanroom.yaml
 # ==========================================
 # Secret Injection (Architecture Observability & Auth)
 # ==========================================
-
-# 1. Handle .env Secrets
-if [ -f ".env" ]; then
-  echo "[*] Injecting secrets into staged snippets..."
-  source .env
+echo "[*] Injecting secrets into staged snippets..."
   
-  # Log Vault Secrets
-  sed -i "s|__LOG_FILE__|$LOG_FILE|g" /var/lib/vz/snippets/cloud-init-logging.yaml
-  sed -i "s|__HEALTH_URL__|$HEALTH_PUSH_URL|g" /var/lib/vz/snippets/cloud-init-logging.yaml
-  sed -i "s|__STREAM_URL__|$STREAM_PUSH_URL|g" /var/lib/vz/snippets/cloud-init-logging.yaml
-  sed -i "s|__CF_ID__|$CF_CLIENT_ID|g" /var/lib/vz/snippets/cloud-init-logging.yaml
-  sed -i "s|__CF_SECRET__|$CF_CLIENT_SECRET|g" /var/lib/vz/snippets/cloud-init-logging.yaml
+# Log Vault Secrets
+sed -i "s|__LOG_FILE__|$LOG_FILE|g" /var/lib/vz/snippets/cloud-init-logging.yaml
+sed -i "s|__HEALTH_URL__|$HEALTH_PUSH_URL|g" /var/lib/vz/snippets/cloud-init-logging.yaml
+sed -i "s|__STREAM_URL__|$STREAM_PUSH_URL|g" /var/lib/vz/snippets/cloud-init-logging.yaml
+sed -i "s|__CF_ID__|$CF_CLIENT_ID|g" /var/lib/vz/snippets/cloud-init-logging.yaml
+sed -i "s|__CF_SECRET__|$CF_CLIENT_SECRET|g" /var/lib/vz/snippets/cloud-init-logging.yaml
+sed -i "s|__RCLONE_REMOTE_PATH__|$RCLONE_REMOTE_PATH|g" /var/lib/vz/snippets/cloud-init-logging.yaml
   
-  # Cleanroom Fuzzer Secrets
-  sed -i "s|__BASE_URL__|$CRSBENCH_LLM_UPSTREAM_BASE_URL|g" /var/lib/vz/snippets/cloud-init-cleanroom.yaml
-  sed -i "s|__GEMINI_API_KEY__|$CRSBENCH_LLM_UPSTREAM_API_KEY|g" /var/lib/vz/snippets/cloud-init-cleanroom.yaml
-  sed -i "s|__RCLONE_REMOTE_PATH__|$RCLONE_REMOTE_PATH|g" /var/lib/vz/snippets/cloud-init-logging.yaml
-else
-  echo "[!] WARNING: .env file not found. Architecture will fail to authenticate."
-fi
+# Cleanroom Fuzzer Secrets
+sed -i "s|__BASE_URL__|$CRSBENCH_LLM_UPSTREAM_BASE_URL|g" /var/lib/vz/snippets/cloud-init-cleanroom.yaml
+sed -i "s|__GEMINI_API_KEY__|$CRSBENCH_LLM_UPSTREAM_API_KEY|g" /var/lib/vz/snippets/cloud-init-cleanroom.yaml
 
 # 2. Handle Rclone Configuration
 if [ -f "rclone.conf" ]; then
@@ -85,7 +85,7 @@ echo "[*] Initializing CRS Cleanroom Architecture..."
 # 1. Log Vault Provisioning (Persistent)
 # ==========================================
 if qm status "$VM1_ID" >/dev/null 2>&1; then
-  echo "[*] Log Vault ($VM1_ID) already exists. Power-cycling to flush port 9001..."
+  echo "[*] Log Vault ($VM1_ID) already exists. Power-cycling to flush port $SERIAL_PORT..."
   qm stop "$VM1_ID" >/dev/null 2>&1 || true
   sleep 2
   qm start "$VM1_ID"
@@ -104,14 +104,14 @@ else
 
   qm set $VM1_ID \
     --ipconfig0 ip=dhcp \
-    --ipconfig1 ip=172.16.255.20/24 \
+    --ipconfig1 ip=$VM1_IP \
     --cicustom "user=$VM1_SNIPPET_PATH" \
     --tags "crs,experiment,logging"
     
   qm resize $VM1_ID scsi0 32G
   
   echo "Configuring Log Vault as Serial Receiver..."
-  qm set $VM1_ID --args "-chardev socket,id=serial_log,host=127.0.0.1,port=9001,server=on,wait=off -device isa-serial,chardev=serial_log,index=1"
+  qm set $VM1_ID --args "-chardev socket,id=serial_log,host=127.0.0.1,port=$SERIAL_PORT,server=on,wait=off -device isa-serial,chardev=serial_log,index=1"
   
   qm start $VM1_ID
   echo "crs-log-vault is booting!"
@@ -120,11 +120,11 @@ fi
 # ==========================================
 # Hypervisor Bridge Synchronization
 # ==========================================
-echo "Waiting for Log Vault hypervisor to bind port 9001..."
-while ! ss -lptn | grep -q ":9001 "; do
+echo "Waiting for Log Vault hypervisor to bind port $SERIAL_PORT..."
+while ! ss -lptn | grep -q ":$SERIAL_PORT "; do
   sleep 1
 done
-echo "Port 9001 is active. Proceeding with Log Vault boot sequence."
+echo "Port $SERIAL_PORT is active. Proceeding with Log Vault boot sequence."
 
 # ==========================================
 # Strict Dependency Lock: Await Log Vault
@@ -158,14 +158,14 @@ qm set $VM2_ID \
 
 qm set $VM2_ID \
   --ipconfig0 ip=dhcp \
-  --ipconfig1 ip=172.16.255.21/24 \
+  --ipconfig1 ip=$VM2_IP \
   --cicustom "user=$VM2_SNIPPET_PATH" \
   --tags "crs,experiment,fuzzer"
 
 qm resize $VM2_ID scsi0 32G
 
 echo "Configuring Cleanroom as Serial Sender..."
-qm set $VM2_ID --args "-chardev socket,id=serial_log,host=127.0.0.1,port=9001 -device isa-serial,chardev=serial_log,index=1"
+qm set $VM2_ID --args "-chardev socket,id=serial_log,host=127.0.0.1,port=$SERIAL_PORT -device isa-serial,chardev=serial_log,index=1"
 
 qm start $VM2_ID
 echo "crs-cleanroom is booting!"
