@@ -14,8 +14,8 @@ users:
 
 chpasswd:
   list: |
-    ubuntu:changeme
-  expire: false
+    ubuntu:__DEFAULT_PASSWORD__
+  expire: __FORCE_PASSWORD_CHANGE__
 
 packages:
   - qemu-guest-agent
